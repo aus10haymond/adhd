@@ -1,0 +1,32 @@
+[
+  {
+    "id": "lru-100ms",
+    "category": "systems",
+    "problem": "Design a thread-safe LRU cache that survives process restart without losing more than the last 100ms of writes."
+  },
+  {
+    "id": "llm-hang-cli",
+    "category": "ux/reliability",
+    "problem": "We have a CLI that calls an LLM and the LLM sometimes hangs for 90 seconds before responding. Design the right retry/timeout/UX strategy."
+  },
+  {
+    "id": "rate-limit-leader",
+    "category": "distsys",
+    "problem": "Design a rate limiter that stays correct across a leader election. Existing leader had counters in memory; new leader takes over with no warning."
+  },
+  {
+    "id": "fuzzy-bug",
+    "category": "debugging",
+    "problem": "0.1% of API requests time out intermittently. No stack trace, no obvious pattern, no recent deploy. How should we investigate? Generate hypothesis classes, not specific fixes."
+  },
+  {
+    "id": "monolith-split",
+    "category": "refactor",
+    "problem": "We have a 200k-line Rails monolith. The team wants to split it. Generate strategies for how to decompose it — by domain, data, team, churn, or otherwise."
+  },
+  {
+    "id": "naming-feature-flag",
+    "category": "naming",
+    "problem": "Generate names for a feature-flag service that supports gradual rollout, kill-switches, and per-tenant overrides. The name should signal control and reversibility."
+  }
+]

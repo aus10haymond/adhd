@@ -16,9 +16,12 @@
   ],
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.bench.json",
     "prepublishOnly": "npm run build",
     "dev": "tsx src/cli.ts",
-    "start": "node dist/cli.js"
+    "start": "node dist/cli.js",
+    "evals": "tsx bench/run-evals.ts",
+    "evals:quick": "tsx bench/run-evals.ts --quick"
   },
   "keywords": [
     "adhd",

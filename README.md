@@ -1,5 +1,11 @@
 # ADHD — a skill for agents
 
+[![CI](https://github.com/UditAkhourii/adhd/actions/workflows/ci.yml/badge.svg)](https://github.com/UditAkhourii/adhd/actions/workflows/ci.yml)
+[![Evals](https://github.com/UditAkhourii/adhd/actions/workflows/evals.yml/badge.svg)](https://github.com/UditAkhourii/adhd/actions/workflows/evals.yml)
+[![npm](https://img.shields.io/npm/v/adhd-agent.svg)](https://www.npmjs.com/package/adhd-agent)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](#install)
+
 > **Stop your agent from picking the first answer.**
 
 ADHD is a drop-in skill and library that makes coding agents think *wide before deep*. It fans out many parallel divergent thoughts under deliberately different cognitive frames (regulator, speedrunner, ant colony, 3am on-call, $0 budget, infinite budget), scores every leaf, prunes the traps, and **deepens only the survivors**.
@@ -283,6 +289,24 @@ Good moments to call it:
 - code-review agent asked *"what could go wrong here"*
 - refactor agent picking which abstraction to introduce
 - test-generation agent generating adversarial inputs (inversion frame)
+
+---
+
+## Evals
+
+ADHD ships with a reproducible eval suite that compares it head-to-head against a single-shot baseline across a set of open-ended engineering problems. An LLM-as-judge with a skeptical-staff-engineer system prompt scores both outputs on five dimensions — **breadth**, **novelty**, **trap detection**, **actionability**, **builder usefulness** — and declares a winner. A/B order is randomized per problem to balance positional bias.
+
+```bash
+npm run evals          # full suite (~6 problems, ~10 LLM calls each)
+npm run evals:quick    # first 2 problems
+npm run evals -- --problem lru-100ms   # one specific problem
+```
+
+Output: [`EVALS.md`](./EVALS.md) (human-readable verdicts + aggregate table) and `bench/results.json` (full transcripts).
+
+The GitHub Actions [Evals workflow](./.github/workflows/evals.yml) runs the same suite on demand; results are uploaded as artifacts and `EVALS.md` is committed back to `main`.
+
+Adding a new problem is a 4-line change to [`bench/problems.json`](./bench/problems.json) — see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ---
 
