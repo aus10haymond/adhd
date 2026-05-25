@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADHD: Parallel Divergent Ideation for Coding Agents</title>
+<meta name="description" content="A preprint introducing ADHD, a parallel divergent ideation method for LLM coding agents. Tree-of-thought with cognitive-frame branching, generator-critic separation, and pruning.">
+<meta property="og:title" content="ADHD: Parallel Divergent Ideation for Coding Agents">
+<meta property="og:description" content="A method that makes coding agents think wide before deep — and the evaluation showing it.">
+<meta property="og:type" content="article">
+<link rel="canonical" href="https://uditakhourii.github.io/adhd/">
+<style>
+  :root {
+    --bg: #fdfcf9;
+    --fg: #1a1a1a;
+    --muted: #5b5b5b;
+    --rule: #d8d4cc;
+    --accent: #b8341c;
+    --code-bg: #f0ece4;
+    --link: #7c2410;
+    --max: 720px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16161a;
+      --fg: #e9e6dc;
+      --muted: #9a948a;
+      --rule: #2e2e36;
+      --accent: #e0644b;
+      --code-bg: #1f1f25;
+      --link: #f0a48d;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 17px/1.6 "Charter", "Iowan Old Style", "Source Serif Pro", Georgia, serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: var(--max); margin: 0 auto; padding: 64px 28px 96px; }
+  header { border-bottom: 1px solid var(--rule); padding-bottom: 28px; margin-bottom: 36px; }
+  .eyebrow { font: 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+  h1 { font-size: 2.05em; line-height: 1.18; margin: 0 0 14px; letter-spacing: -.01em; }
+  h1 .sub { display: block; font-size: .62em; font-weight: 400; color: var(--muted); margin-top: 8px; letter-spacing: 0; }
+  .meta { color: var(--muted); font-size: .92em; margin: 14px 0 0; }
+  .meta a { color: var(--link); }
+  .links { margin-top: 14px; font-size: .92em; }
+  .links a { color: var(--link); text-decoration: none; margin-right: 14px; border-bottom: 1px solid var(--rule); padding-bottom: 1px; }
+  .links a:hover { border-color: var(--link); }
+  h2 { font-size: 1.35em; margin: 48px 0 14px; letter-spacing: -.005em; counter-increment: sec; }
+  h2::before { content: counter(sec) ".  "; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .abstract h2 { counter-increment: none; }
+  body { counter-reset: sec; }
+  h3 { font-size: 1.1em; margin: 28px 0 10px; }
+  p { margin: 0 0 16px; }
+  a { color: var(--link); }
+  blockquote { margin: 18px 0; padding: 4px 18px; border-left: 3px solid var(--accent); color: var(--muted); font-style: italic; }
+  blockquote p { margin: 8px 0; }
+  code { font: .92em ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--code-bg); padding: 1px 5px; border-radius: 3px; }
+  pre { background: var(--code-bg); padding: 14px 16px; border-radius: 6px; overflow-x: auto; font-size: .88em; line-height: 1.5; }
+  pre code { background: transparent; padding: 0; }
+  ul, ol { padding-left: 22px; margin: 0 0 16px; }
+  li { margin: 4px 0; }
+  hr { border: 0; border-top: 1px solid var(--rule); margin: 36px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 18px 0; font-size: .93em; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: .85em; text-transform: uppercase; letter-spacing: .06em; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .delta-pos { color: var(--accent); font-weight: 600; }
+  .abstract { background: var(--code-bg); padding: 18px 22px; border-radius: 6px; margin: 28px 0 0; font-size: .96em; }
+  .abstract h2 { margin: 0 0 8px; font-size: .8em; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); }
+  .abstract h2::before { content: ""; }
+  .figure { margin: 28px 0; }
+  .figure svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  .figure .caption { font-size: .88em; color: var(--muted); margin-top: 10px; text-align: center; }
+  .toc { font-size: .94em; background: var(--code-bg); padding: 16px 22px; border-radius: 6px; margin: 28px 0; }
+  .toc strong { font-size: .82em; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); display: block; margin-bottom: 6px; }
+  .toc ol { padding-left: 18px; margin: 0; }
+  .toc a { text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  sup.cite a { color: var(--link); text-decoration: none; font-feature-settings: "sups"; }
+  .refs { font-size: .92em; }
+  .refs ol { padding-left: 22px; }
+  .refs li { margin-bottom: 8px; }
+  .refs li a { word-break: break-all; }
+  footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule); color: var(--muted); font-size: .88em; }
+  .pull { font-size: 1.18em; line-height: 1.5; padding: 4px 0 4px 18px; border-left: 3px solid var(--accent); margin: 22px 0; color: var(--fg); }
+  @media (max-width: 520px) {
+    body { font-size: 16px; }
+    .wrap { padding: 40px 18px 64px; }
+    h1 { font-size: 1.7em; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Preprint · v0.1 · 2026-05-25</p>
+  <h1>
+    ADHD: Parallel Divergent Ideation for Coding Agents
+    <span class="sub">Tree-of-thought with cognitive-frame branching, generator–critic separation, and pruning.</span>
+  </h1>
+  <p class="meta">
+    Udit Akhouri Raj &nbsp;·&nbsp;
+    <a href="https://github.com/UditAkhourii/adhd">github.com/UditAkhourii/adhd</a>
+  </p>
+  <p class="links">
+    <a href="https://github.com/UditAkhourii/adhd">Code</a>
+    <a href="https://github.com/UditAkhourii/adhd/blob/main/EVALS.md">Evals</a>
+    <a href="https://github.com/UditAkhourii/adhd/blob/main/SKILL.md">Source skill</a>
+    <a href="https://www.npmjs.com/package/adhd-agent">npm</a>
+  </p>
+
+  <div class="abstract">
+    <h2>Abstract</h2>
+    <p>Large language model agents exhibit <em>premature convergence</em>: when asked to ideate on an open-ended design problem they default to the first plausible candidate and polish it, producing competent but forgettable output. We introduce <strong>ADHD</strong>, a method that fans out <em>N</em> parallel divergent branches under structurally different <em>cognitive frames</em> (e.g. <em>regulator</em>, <em>speedrunner</em>, <em>biology</em>, <em>$0 budget</em>), with no cross-branch context, then converges via a separate critic pass that scores, clusters, and deepens only the top-<em>K</em> survivors. ADHD differs from Chain-of-Thought along three load-bearing axes: branches are <em>isolated</em> rather than shared, branching is driven by <em>vantage-point reframing</em> rather than next-step variation, and the generator/critic split is enforced <em>mechanically</em> (separate LLM calls with opposite system prompts) rather than promised by a single context. Across six open-ended engineering problems judged by an independent LLM-as-judge, ADHD wins 5/6 against a single-shot baseline at the same model, with mean improvements of <strong>+5.17 in novelty</strong>, <strong>+4.17 in breadth</strong>, and <strong>+7.67 in trap detection</strong> on a 0–10 rubric. We argue ADHD is the right inference-time structure for creative, interdisciplinary, and design-shaped tasks where the failure mode is not <em>wrong</em> but <em>obvious</em>.</p>
+  </div>
+</header>
+
+<nav class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#intro">Introduction</a></li>
+    <li><a href="#related">Related work</a></li>
+    <li><a href="#method">Method</a></li>
+    <li><a href="#impl">Implementation</a></li>
+    <li><a href="#eval">Evaluation</a></li>
+    <li><a href="#analysis">Analysis</a></li>
+    <li><a href="#discussion">Discussion and limitations</a></li>
+    <li><a href="#conclusion">Conclusion</a></li>
+    <li><a href="#refs">References</a></li>
+  </ol>
+</nav>
+
+<h2 id="intro">Introduction</h2>
+
+<p>A modern LLM, prompted with <em>"give me a few ways to do X"</em>, will almost always produce the same three answers a senior practitioner would. This is not a bug at the token level — those <em>are</em> the high-probability completions — but it is a failure at the task level whenever the user's purpose is to <em>escape</em> the high-probability answer. We call this failure mode <strong>premature convergence</strong>: the model evaluates as it generates, the early tokens anchor the late tokens, and the output is the centroid of the training distribution dressed up as a recommendation.</p>
+
+<p>Premature convergence is most costly in exactly the regimes where ideation matters most: architecture decisions, API and SDK design, debugging fuzzy intermittent failures, refactor planning, naming, positioning, and any task whose deliverable is a <em>set of viable options</em> rather than a single answer. In these tasks the textbook answer is often the trap, and the interesting answer lives in what the original divergent-ideation skill calls <em>"the awkward middle, past the first three"</em>.<sup class="cite"><a href="#ref-skill">[1]</a></sup></p>
+
+<p>Existing inference-time methods address adjacent problems. <strong>Chain-of-Thought</strong> (CoT)<sup class="cite"><a href="#ref-cot">[2]</a></sup> makes one head reason more slowly along one path, exposing the intermediate steps so the model does not skip them. <strong>Tree-of-Thought</strong> (ToT)<sup class="cite"><a href="#ref-tot">[3]</a></sup> makes one head <em>search</em> over candidate next-steps with backtracking. <strong>Self-consistency</strong> sampling<sup class="cite"><a href="#ref-sc">[4]</a></sup> draws multiple traces and majority-votes. <strong>Mixture-of-Agents</strong><sup class="cite"><a href="#ref-moa">[5]</a></sup> and multi-agent <strong>debate</strong><sup class="cite"><a href="#ref-debate">[6]</a></sup> sample multiple full responses and aggregate. All four are valuable, but all four optimise for <em>correctness on a closed answer space</em>. None of them is shaped right for the open-ended case where there is no ground truth, no test you can run on a partial, and the metric of interest is <em>range of non-obvious viable options</em>.</p>
+
+<p>We propose <strong>ADHD</strong>: a method that produces such a range by structurally <em>preventing</em> the generator from converging during divergence, and only converging in a separate, posterior critic pass. ADHD borrows the tree structure of ToT but replaces its branching driver (next-step search) with <em>vantage-point reframing</em>, and replaces ToT's intermingled generator/evaluator with two strictly separated LLM calls. The result, on the evaluations we report below, is a method that wins clearly against a single-shot baseline on novelty, breadth, and trap detection — the dimensions premature convergence destroys.</p>
+
+<p class="pull">CoT makes one head think slower. ToT makes one head search wider. ADHD makes many heads think <em>differently</em>, in parallel, then has a critic pick.</p>
+
+<h2 id="related">Related work</h2>
+
+<h3>Single-trace methods</h3>
+<p><strong>Chain-of-Thought</strong><sup class="cite"><a href="#ref-cot">[2]</a></sup> elicits intermediate reasoning by prompting (or fine-tuning) the model to "think step by step". It is decisively useful on multi-step problems with verifiable answers (arithmetic, symbolic reasoning) but it is a single linear trace: each step is conditioned on the previous, which is precisely the anchoring dynamic ADHD is designed to break. <strong>Self-Consistency</strong><sup class="cite"><a href="#ref-sc">[4]</a></sup> samples many CoT traces and majority-votes the final answer; it improves robustness but assumes a discrete correct answer, which ideation does not have.</p>
+
+<h3>Multi-branch search methods</h3>
+<p><strong>Tree-of-Thought</strong><sup class="cite"><a href="#ref-tot">[3]</a></sup> generalises CoT to a tree of intermediate "thoughts" with explicit search (BFS or DFS) and an evaluator function that scores partial states. ToT is the closest neighbour of ADHD, and ADHD can be described as a ToT variant. The differences are not cosmetic: (i) ToT's branches share a single conversational context so anchoring still occurs across steps, (ii) ToT's branching driver is <em>next-step variation</em> (try numeric value <em>x</em> vs <em>y</em>), which produces nearby ideas rather than structurally different ones, and (iii) ToT typically interleaves generator and evaluator within the same model call.</p>
+
+<h3>Multi-agent and aggregation methods</h3>
+<p><strong>Multi-Agent Debate</strong><sup class="cite"><a href="#ref-debate">[6]</a></sup> has multiple instances critique each other across rounds; this can improve factuality but converges aggressively toward consensus, which is the opposite of what ideation needs. <strong>Mixture-of-Agents</strong><sup class="cite"><a href="#ref-moa">[5]</a></sup> stacks layers of LLMs that read each other's outputs; it improves quality on benchmarks but, again, the per-layer aggregation step is designed to converge. <strong>ReAct</strong><sup class="cite"><a href="#ref-react">[7]</a></sup> interleaves reasoning with tool use, which is orthogonal to the ideation question we address.</p>
+
+<h3>Method-acting and persona prompting</h3>
+<p>A separate strand of work assigns the model a role — <em>"you are an expert X"</em> — to bias output style or domain knowledge. ADHD's cognitive frames superficially resemble this but differ in intent: frames are not chosen for expertise but for <em>structural distortion</em>. The "10-year-old" frame is not asked to be correct; it is asked to <em>ignore convention</em>. The "speedrunner" frame is not asked to be authoritative; it is asked to <em>look for glitches</em>. Frames are vantage-point operators, not credentials.</p>
+
+<h3>Source: the Divergent Ideation skill</h3>
+<p>ADHD operationalises a written skill on divergent ideation<sup class="cite"><a href="#ref-skill">[1]</a></sup> that prescribes a divergence/convergence loop with explicit anti-patterns ("convergence disguised as divergence", "weird-for-weird's-sake with no convergence", "refusing to commit"). Our contribution is to turn that prose into a mechanically enforceable runtime: separate LLM calls, isolated branches, and scoring-then-deepening rather than scoring-during-generating.</p>
+
+<h2 id="method">Method</h2>
+
+<p>ADHD is a two-phase loop with a hard mechanical separation between phases.</p>
+
+<div class="figure">
+<svg viewBox="0 0 720 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ADHD loop diagram">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+    </marker>
+  </defs>
+  <g fill="none" stroke="currentColor" stroke-width="1.4" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12">
+    <!-- problem -->
+    <rect x="20" y="120" width="100" height="44" rx="6"/>
+    <text x="70" y="146" text-anchor="middle" fill="currentColor" stroke="none">problem</text>
+
+    <!-- frames -->
+    <g>
+      <rect x="170" y="20" width="120" height="34" rx="6"/>
+      <text x="230" y="42" text-anchor="middle" fill="currentColor" stroke="none">frame · regulator</text>
+      <rect x="170" y="70" width="120" height="34" rx="6"/>
+      <text x="230" y="92" text-anchor="middle" fill="currentColor" stroke="none">frame · biology</text>
+      <rect x="170" y="120" width="120" height="34" rx="6"/>
+      <text x="230" y="142" text-anchor="middle" fill="currentColor" stroke="none">frame · speedrunner</text>
+      <rect x="170" y="170" width="120" height="34" rx="6"/>
+      <text x="230" y="192" text-anchor="middle" fill="currentColor" stroke="none">frame · 10-year-old</text>
+      <rect x="170" y="220" width="120" height="34" rx="6"/>
+      <text x="230" y="242" text-anchor="middle" fill="currentColor" stroke="none">frame · $0 budget</text>
+    </g>
+
+    <!-- diverge arrows -->
+    <line x1="120" y1="142" x2="170" y2="37" marker-end="url(#arr)"/>
+    <line x1="120" y1="142" x2="170" y2="87" marker-end="url(#arr)"/>
+    <line x1="120" y1="142" x2="170" y2="137" marker-end="url(#arr)"/>
+    <line x1="120" y1="142" x2="170" y2="187" marker-end="url(#arr)"/>
+    <line x1="120" y1="142" x2="170" y2="237" marker-end="url(#arr)"/>
+
+    <!-- score+cluster -->
+    <rect x="340" y="100" width="120" height="80" rx="6"/>
+    <text x="400" y="135" text-anchor="middle" fill="currentColor" stroke="none">score</text>
+    <text x="400" y="155" text-anchor="middle" fill="currentColor" stroke="none">+ cluster</text>
+
+    <line x1="290" y1="37" x2="340" y2="120" marker-end="url(#arr)"/>
+    <line x1="290" y1="87" x2="340" y2="130" marker-end="url(#arr)"/>
+    <line x1="290" y1="137" x2="340" y2="140" marker-end="url(#arr)"/>
+    <line x1="290" y1="187" x2="340" y2="150" marker-end="url(#arr)"/>
+    <line x1="290" y1="237" x2="340" y2="160" marker-end="url(#arr)"/>
+
+    <!-- deepen top-K -->
+    <rect x="510" y="70" width="180" height="44" rx="6"/>
+    <text x="600" y="96" text-anchor="middle" fill="currentColor" stroke="none">deepen idea #1</text>
+    <rect x="510" y="120" width="180" height="44" rx="6"/>
+    <text x="600" y="146" text-anchor="middle" fill="currentColor" stroke="none">deepen idea #2</text>
+    <rect x="510" y="170" width="180" height="44" rx="6"/>
+    <text x="600" y="196" text-anchor="middle" fill="currentColor" stroke="none">deepen idea #3</text>
+
+    <line x1="460" y1="125" x2="510" y2="92" marker-end="url(#arr)"/>
+    <line x1="460" y1="140" x2="510" y2="142" marker-end="url(#arr)"/>
+    <line x1="460" y1="155" x2="510" y2="192" marker-end="url(#arr)"/>
+
+    <!-- phase labels -->
+    <text x="230" y="270" text-anchor="middle" fill="currentColor" stroke="none" font-style="italic" opacity="0.7">Phase 1 — Diverge (no critic)</text>
+    <text x="555" y="270" text-anchor="middle" fill="currentColor" stroke="none" font-style="italic" opacity="0.7">Phase 2 — Focus (critic on)</text>
+  </g>
+</svg>
+<p class="caption">Fig. 1 — The ADHD loop. <em>N</em> isolated divergence calls (left) under different cognitive frames; a separate scoring/clustering call (centre); top-<em>K</em> deepening calls that expand the survivors (right). Branches do not share context during Phase 1.</p>
+</div>
+
+<h3>Phase 1 — Diverge</h3>
+<p>Given a problem <em>p</em>, we select <em>N</em> frames <em>F<sub>1</sub>, …, F<sub>N</sub></em> from a library of 15 (e.g. <em>hardware engineer</em>, <em>regulator</em>, <em>biology</em>, <em>logistics</em>, <em>game design</em>, <em>markets</em>, <em>inversion</em>, <em>$0 budget</em>, <em>remove the load-bearing assumption</em>, <em>speedrunner</em>, <em>ant colony</em>, <em>3am on-call</em>). For each frame we make a fresh, parallel LLM call with:</p>
+
+<ul>
+  <li>a <em>generator-only</em> system prompt that forbids evaluation, ranking, or hedging,</li>
+  <li>the problem statement,</li>
+  <li>the frame's vantage prompt (e.g. <em>"You think in latency, memory layout, and physical constraints. Re-ask this problem as if it were a hardware/firmware problem"</em>),</li>
+  <li>a JSON-only output instruction asking for <em>k</em> short, distinct candidate ideas.</li>
+</ul>
+
+<p>Critically, the <em>N</em> calls do not share context. The <em>regulator</em> branch never reads what the <em>speedrunner</em> branch produced. Anchoring is eliminated by construction, not by prompting.</p>
+
+<p>The frame library is tagged (<code>code</code>, <code>design</code>, <code>general</code>, <code>wild</code>). When <code>codeMode</code> is enabled (the default) we bias selection toward engineering-relevant tags but always reserve one slot for a <code>wild</code> frame to preserve range.</p>
+
+<h3>Phase 2 — Focus</h3>
+<p>With the pool of <em>N × k</em> ideas in hand, we run three further calls:</p>
+<ol>
+  <li><strong>Score</strong>. A single critic call scores every idea on three axes (<em>novelty</em>, <em>viability</em>, <em>fit</em>), each 0–10, and may flag any idea as a <em>trap</em> with a one-line reason ("looks attractive but is …"). The critic uses a system prompt that explicitly asks for adversarial reading.</li>
+  <li><strong>Cluster</strong>. A second critic call groups ideas into 3–6 clusters by their underlying <em>angle</em>, not their surface keywords ("remove-the-server plays", "cache-shaped plays", "batched-time-window plays"). This step surfaces the <em>shape</em> of the candidate space.</li>
+  <li><strong>Deepen</strong>. For the top-<em>K</em> ideas (ranked by weighted score, excluding traps), we make <em>K</em> parallel <em>focus</em> calls. Each produces (a) a 4–8 sentence sketch of how the idea would work, (b) the load-bearing risk, (c) the first concrete step a builder would take, and (d) 3–5 child ideas (variations, hybrids, unlocks). These child ideas become the second-level connections — the "connecting the dots" pass.</li>
+</ol>
+
+<p>The final output is the wide set (clustered), a 2–4 idea shortlist with the non-obvious-but-viable pick flagged explicitly, the trap list, the deepened sketches with their child ideas, and one wildcard provocation drawn from the highest-novelty leaf.</p>
+
+<h3>Why the separations matter</h3>
+<p>Three invariants are load-bearing. Removing any of them collapses ADHD into a method that already exists.</p>
+<ol>
+  <li><strong>Isolation, not search.</strong> CoT and ToT branches share a context window; by step 4 the model has anchored on what it wrote in steps 1–3. ADHD's <em>N</em> branches are <em>N</em> distinct LLM calls with no shared history. Anchoring is mechanically impossible across branches.</li>
+  <li><strong>Frames, not next-step variation.</strong> ToT typically varies the next move within a search problem. ADHD varies the <em>entire vantage point of the generator</em>. It is not "what step comes next from here"; it is "re-ask the whole question as if you were an immune system". This produces structurally different ideas, not nearby ones, which is the prerequisite for surfacing cross-domain transplants.</li>
+  <li><strong>Generator–critic split is mechanical.</strong> The generator system prompt forbids evaluation. The critic system prompt forbids generation. They are different calls. A single model evaluating as it generates is exactly the "critic strangles the generator" failure the original skill warns against<sup class="cite"><a href="#ref-skill">[1]</a></sup>.</li>
+</ol>
+
+<h2 id="impl">Implementation</h2>
+
+<p>We implement ADHD as a Node/TypeScript library on top of the Claude Agent SDK<sup class="cite"><a href="#ref-sdk">[8]</a></sup>. The package ships a CLI (<code>adhd "&lt;problem&gt;"</code>), a programmatic API (<code>run(opts) → RunResult</code>), and a frame library that is extensible in five lines per frame. A default run uses <em>N</em> = 5 frames, <em>k</em> = 6 ideas per frame, <em>K</em> = 3 deepened survivors, concurrency 4. Total LLM calls per run: <em>N</em> divergences + 1 score + 1 cluster + <em>K</em> deepens ≈ 10.</p>
+
+<p>Each phase uses a system prompt tuned for its posture. Divergence prompts begin with <em>"You are in DIVERGENT mode. You are a generator, not a critic"</em> and enumerate constraints (JSON only, no prose, no ranking, the first three obvious answers are banned, push past them). The scoring prompt begins with <em>"You are in CONVERGENT mode. You are now the critic"</em> and supplies the rubric. The deepen prompt begins with <em>"You are in FOCUS mode"</em>. These prompts are designed to be self-evidently incompatible, so the model cannot drift between them within a single call.</p>
+
+<p>The implementation is roughly 600 lines of TypeScript and is released under MIT licence at <a href="https://github.com/UditAkhourii/adhd">github.com/UditAkhourii/adhd</a>.</p>
+
+<h2 id="eval">Evaluation</h2>
+
+<h3>Setup</h3>
+<p>We compare ADHD against a single-shot baseline at the same underlying model. The baseline receives a senior-engineer system prompt and the problem statement and is asked to produce a useful answer with approaches, tradeoffs, and a recommendation. This baseline is deliberately strong: it is what an experienced practitioner would actually do at a chat prompt.</p>
+
+<h3>Problems</h3>
+<p>Six open-ended engineering problems were used, chosen to span systems, distributed systems, UX/reliability, debugging, refactor, and naming:</p>
+<ul>
+  <li><em>lru-100ms</em> — thread-safe LRU cache surviving restart with ≤100 ms of write loss.</li>
+  <li><em>llm-hang-cli</em> — retry/timeout/UX strategy for a CLI whose LLM occasionally hangs 90 s.</li>
+  <li><em>rate-limit-leader</em> — rate limiter correct across leader election with no warm handoff.</li>
+  <li><em>fuzzy-bug</em> — 0.1% intermittent API timeouts, no obvious pattern. Generate hypothesis classes.</li>
+  <li><em>monolith-split</em> — decomposition strategy for a 200k-line Rails monolith.</li>
+  <li><em>naming-feature-flag</em> — names for a feature-flag service signalling control and reversibility.</li>
+</ul>
+
+<h3>Judging</h3>
+<p>Each pair (ADHD output, baseline output) is scored by an independent LLM-as-judge call with a <em>skeptical staff engineer</em> system prompt. The judge sees both outputs blinded as A/B in randomised order per problem (recorded for de-bias), and scores on five dimensions: <em>breadth</em> (range of structurally distinct angles), <em>novelty</em> (non-obvious-but-viable ideas), <em>trap_detection</em> (does it name ideas that look good but aren't, with reasons), <em>actionability</em> (does the top pick have a sketch + named risk + first concrete step), and <em>builder_usefulness</em> (which is more useful to the engineer who actually has to ship). Each dimension is 0–10. The judge then declares an overall winner of A, B, or tie, and writes a one-line summary.</p>
+
+<p>To reduce same-model bias, the judge system prompt is explicit about adversarial reading and the rubric. A/B labels are de-anonymised only after all six runs are complete. We acknowledge that LLM-as-judge can favour outputs of similar surface character to its own training distribution; we address this in §<a href="#discussion">7</a>.</p>
+
+<h3>Results</h3>
+<p>Aggregate results across the six problems (mean score per dimension):</p>
+
+<table>
+  <thead>
+    <tr><th>Dimension</th><th class="num">ADHD</th><th class="num">Baseline</th><th class="num">Δ</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>breadth</td><td class="num">9.00</td><td class="num">4.83</td><td class="num delta-pos">+4.17</td></tr>
+    <tr><td>novelty</td><td class="num">7.83</td><td class="num">2.67</td><td class="num delta-pos">+5.17</td></tr>
+    <tr><td>trap_detection</td><td class="num">9.50</td><td class="num">1.83</td><td class="num delta-pos">+7.67</td></tr>
+    <tr><td>actionability</td><td class="num">9.50</td><td class="num">6.50</td><td class="num delta-pos">+3.00</td></tr>
+    <tr><td>builder_usefulness</td><td class="num">7.67</td><td class="num">6.83</td><td class="num delta-pos">+0.83</td></tr>
+  </tbody>
+</table>
+
+<p>Per-problem overall winners: ADHD wins on <em>lru-100ms</em>, <em>rate-limit-leader</em>, <em>fuzzy-bug</em>, <em>monolith-split</em>, and <em>naming-feature-flag</em>. The baseline wins on <em>llm-hang-cli</em>. Final tally: <strong>ADHD 5W / 1L / 0T</strong>. Full per-problem verdicts and transcripts are committed to the repository as <code>EVALS.md</code> and <code>bench/results.json</code>.</p>
+
+<h2 id="analysis">Analysis</h2>
+
+<h3>Where ADHD wins</h3>
+<p>The largest delta is <strong>trap detection</strong> (+7.67). The baseline rarely names ideas that look good but are wrong; ADHD's scoring pass explicitly flags traps with reasons. Two examples from the evaluation runs:</p>
+
+<ul>
+  <li>On <em>llm-hang-cli</em>, ADHD flagged a "multi-rail redundancy" idea (fire identical requests to 2–3 endpoints simultaneously) as a trap because it doubles or triples API costs and may violate rate limits — a real concern any builder would otherwise discover only at the bill.</li>
+  <li>On <em>lru-100ms</em>, ADHD flagged a "treat disk as NVRAM with timer-interrupt commits" idea as a trap because timer-interrupt precision under load requires a kernel-level implementation most user-space apps cannot guarantee. The baseline included a similar idea uncritically.</li>
+</ul>
+
+<p>The <strong>novelty</strong> delta (+5.17) is driven by the cross-domain frames. The most striking example, on <em>llm-hang-cli</em>, is a <em>first-byte vs chunk-idle dual timer</em> design — distinguishing NEVER_CONNECTED, STALLED_MID_STREAM, and COMPLETED_SLOW failure modes — which the baseline did not surface and which is, in our judgement, the correct architecture for streaming LLM clients. It arose from the <em>regulator</em> frame's question "what must be distinguishable in the audit trail?". Similarly, on <em>fuzzy-bug</em>, the <em>biology</em> frame surfaced a "fever-response circuit-breaker" idea that resolves to progressive degradation tiers (Opus → Sonnet → Haiku → cached) — concrete, shippable, and not in the baseline.</p>
+
+<p>The <strong>breadth</strong> delta (+4.17) reflects the cluster pass: the baseline tends to list four or five variations on a single underlying angle, while ADHD surfaces 6–9 structurally different angles per problem.</p>
+
+<h3>Where ADHD loses</h3>
+<p>The one loss, on <em>llm-hang-cli</em>, is informative. The judge wrote: <em>"B [ADHD] explores vastly more creative territory and expertly identifies traps, but A [baseline] delivers a pragmatic, immediately implementable solution that an engineer can ship today."</em> ADHD scored higher on breadth, novelty, and trap detection on this problem, but lost on <em>builder_usefulness</em> — the judge preferred the baseline's tighter, polished, ship-today shape over ADHD's richer but rougher pile.</p>
+
+<p>This matches the failure mode we expect. When the problem is <em>well-understood with a known good answer</em>, a single polished answer beats a wide set with the same answer buried in it. ADHD pays its cost in presentation overhead; that cost is worth it precisely when the wide set <em>contains</em> ideas the polished answer missed. On <em>llm-hang-cli</em> the baseline already knew the right answer; on the other five problems it did not.</p>
+
+<h3>Cost</h3>
+<p>A default ADHD run uses ≈10 LLM calls (5 divergence + 1 score + 1 cluster + 3 deepen) versus 1 for the baseline. Wall-clock latency at concurrency 4 is typically 30–90 s. We frame this honestly: ADHD is for decision points, not inner loops. The right mental model is <em>spend US$0.30 to widen a US$50k architecture decision</em>.</p>
+
+<h2 id="discussion">Discussion and limitations</h2>
+
+<h3>Limitations</h3>
+<p><strong>Same-model judging.</strong> Our LLM-as-judge runs on the same model family as the generator. We mitigated with adversarial system prompts and randomised A/B order, but we cannot exclude familiarity bias entirely. A useful follow-up is cross-model judging (e.g. judge with a different vendor's model) and human ratings on a held-out subset.</p>
+
+<p><strong>Small problem set.</strong> Six problems is enough to see consistent direction but not enough to make strong quantitative claims. We released the harness so the set can be extended; adding a new problem is a four-line change.</p>
+
+<p><strong>Frame library is hand-authored.</strong> The 15 frames in the current library reflect our judgement about which vantage points produce distinct outputs on engineering problems. A frame can fail silently — producing paraphrases of another frame's ideas — without the harness catching it. Frame-quality evaluation is future work.</p>
+
+<p><strong>Confounded by deepen quality.</strong> The <em>actionability</em> delta is partly explained by the deepen pass, which gives ADHD a structural advantage (sketch + risk + first step) that the baseline's free-form prose does not enforce. A fairer ablation would equip the baseline with the same output schema; we expect ADHD's lead to shrink on this dimension but not on breadth, novelty, or trap detection.</p>
+
+<p><strong>Domain.</strong> All six problems are engineering-shaped. The frame library is biased toward engineering when <code>codeMode</code> is enabled. Whether ADHD's wins generalise to product strategy, scientific brainstorming, or pure creative writing is plausible but not demonstrated here.</p>
+
+<h3>When to use ADHD</h3>
+<p>ADHD is the right tool when (i) the problem is open-ended, (ii) the cost of the obvious answer being wrong is high, (iii) the user cannot articulate a ground truth in advance, and (iv) breadth and trap detection are worth a 5–10× LLM-call premium. It is the wrong tool for lookup questions, bug fixes with a known root cause, and any task where the answer is one search query away. The one-sentence test we propose: <em>if a junior would Google it and find the answer, baseline wins; if a senior would say "hm, let me think about this differently for a minute", ADHD is the moment that replaces.</em></p>
+
+<h3>Use inside larger agents</h3>
+<p>The most interesting application surface is not the standalone CLI but as a callable subroutine inside larger coding agents at decision points. A planning agent at a branch point with high uncertainty, a code-review agent asked "what could go wrong here", a debugging agent stuck after three patches, and a test-generation agent searching for adversarial inputs all benefit from a pause-and-widen step before committing to the next move. The library API <code>run({...})</code> is designed for this.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>We have argued that LLM coding agents systematically converge prematurely on open-ended ideation tasks, and that this failure is structural rather than capability-bounded. We presented ADHD, an inference-time method that prevents convergence during a divergence phase by running <em>N</em> isolated parallel branches under cognitive-frame distortions, and converges in a separate critic pass that scores, clusters, and deepens only the survivors. ADHD differs from existing tree-of-thought methods along three load-bearing axes: branch isolation, frame-based branching, and mechanical generator–critic separation. On six open-ended engineering problems, ADHD wins 5/6 against a single-shot baseline at the same model, with the largest gains concentrated in trap detection, novelty, and breadth — the dimensions premature convergence destroys. The implementation is small, open-source, and intended to be used as a subroutine inside larger agents at decision points where the cost of the obvious answer is high. The full release is available at <a href="https://github.com/UditAkhourii/adhd">github.com/UditAkhourii/adhd</a>.</p>
+
+<h2 id="refs">References</h2>
+<ol class="refs">
+  <li id="ref-skill">Divergent Ideation skill (source spec). Reproduced in <code>SKILL.md</code> at the project repository. <a href="https://github.com/UditAkhourii/adhd/blob/main/SKILL.md">link</a></li>
+  <li id="ref-cot">Wei, J., Wang, X., Schuurmans, D., et al. <em>Chain-of-Thought Prompting Elicits Reasoning in Large Language Models</em>. NeurIPS 2022. <a href="https://arxiv.org/abs/2201.11903">arXiv:2201.11903</a></li>
+  <li id="ref-tot">Yao, S., Yu, D., Zhao, J., et al. <em>Tree of Thoughts: Deliberate Problem Solving with Large Language Models</em>. NeurIPS 2023. <a href="https://arxiv.org/abs/2305.10601">arXiv:2305.10601</a></li>
+  <li id="ref-sc">Wang, X., Wei, J., Schuurmans, D., et al. <em>Self-Consistency Improves Chain of Thought Reasoning in Language Models</em>. ICLR 2023. <a href="https://arxiv.org/abs/2203.11171">arXiv:2203.11171</a></li>
+  <li id="ref-moa">Wang, J., Wang, J., Athiwaratkun, B., et al. <em>Mixture-of-Agents Enhances Large Language Model Capabilities</em>. 2024. <a href="https://arxiv.org/abs/2406.04692">arXiv:2406.04692</a></li>
+  <li id="ref-debate">Du, Y., Li, S., Torralba, A., et al. <em>Improving Factuality and Reasoning in Language Models through Multiagent Debate</em>. ICML 2024. <a href="https://arxiv.org/abs/2305.14325">arXiv:2305.14325</a></li>
+  <li id="ref-react">Yao, S., Zhao, J., Yu, D., et al. <em>ReAct: Synergizing Reasoning and Acting in Language Models</em>. ICLR 2023. <a href="https://arxiv.org/abs/2210.03629">arXiv:2210.03629</a></li>
+  <li id="ref-sdk">Anthropic. <em>Claude Agent SDK documentation</em>. <a href="https://docs.claude.com/en/api/agent-sdk">docs.claude.com</a></li>
+</ol>
+
+<footer>
+  <p>Preprint v0.1 · Released 2026-05-25 · MIT licence · Cite as: Akhouri Raj, U. <em>ADHD: Parallel Divergent Ideation for Coding Agents</em>. 2026. <a href="https://uditakhourii.github.io/adhd/">uditakhourii.github.io/adhd</a>.</p>
+</footer>
+
+</div>
+</body>
+</html>
