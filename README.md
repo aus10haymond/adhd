@@ -5,11 +5,11 @@
 [![npm](https://img.shields.io/npm/v/adhd-agent.svg)](https://www.npmjs.com/package/adhd-agent)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)](#install)
-[![Paper](https://img.shields.io/badge/paper-preprint-blueviolet)](https://uditakhourii.github.io/adhd/)
+[![Paper](https://img.shields.io/badge/paper-preprint-blueviolet)](https://adhdstack.github.io/)
 
 > **Stop your agent from picking the first answer.**
 
-📄 **Read the preprint:** [ADHD: Parallel Divergent Ideation for Coding Agents](https://uditakhourii.github.io/adhd/)
+📄 **Read the preprint:** [ADHD: Parallel Divergent Ideation for Coding Agents](https://adhdstack.github.io/)
 
 ADHD is a drop-in skill and library that makes coding agents think *wide before deep*. It fans out many parallel divergent thoughts under deliberately different cognitive frames (regulator, speedrunner, ant colony, 3am on-call, $0 budget, infinite budget), scores every leaf, prunes the traps, and **deepens only the survivors**.
 
