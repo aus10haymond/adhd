@@ -421,11 +421,7 @@ Adding a new problem is a 4-line change to [`bench/problems.json`](./bench/probl
 ## Star History
 
 <a href="https://www.star-history.com/#UditAkhourii/adhd&Date">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=UditAkhourii/adhd&type=Date&theme=dark" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=UditAkhourii/adhd&type=Date" />
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=UditAkhourii/adhd&type=Date" />
-  </picture>
+  <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=UditAkhourii/adhd&type=Date" />
 </a>
 
 ---
