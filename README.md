@@ -377,6 +377,22 @@ Good moments to call it:
 
 ADHD ships with a reproducible eval suite that compares it head-to-head against a single-shot baseline across a set of open-ended engineering problems. An LLM-as-judge with a skeptical-staff-engineer system prompt scores both outputs on five dimensions — **breadth**, **novelty**, **trap detection**, **actionability**, **builder usefulness** — and declares a winner. A/B order is randomized per problem to balance positional bias.
 
+### Headline results
+
+Mean scores across 6 problems (0–10). Full per-problem verdicts in [`EVALS.md`](./EVALS.md).
+
+| Dimension          | ADHD     | Baseline | Δ        | Ratio    |
+| ------------------ | -------: | -------: | -------: | -------: |
+| breadth            | **9.00** | 4.83     | **+4.17** | 1.9× |
+| novelty            | **7.83** | 2.67     | **+5.17** | 2.9× |
+| trap_detection     | **9.50** | 1.83     | **+7.67** | 5.2× |
+| actionability      | **9.50** | 6.50     | **+3.00** | 1.5× |
+| builder_usefulness | **7.67** | 6.83     | **+0.83** | 1.1× |
+
+ADHD wins 5 of 6 problems head-to-head. The biggest gap is **trap detection** — single-shot baselines almost never name the seductive-but-broken ideas, while ADHD's separate critic pass routinely flags 15–20 of them with mechanistic reasons.
+
+_Run date: 2026-05-25. Re-run anytime with `npm run evals`._
+
 ```bash
 npm run evals          # full suite (~6 problems, ~10 LLM calls each)
 npm run evals:quick    # first 2 problems
