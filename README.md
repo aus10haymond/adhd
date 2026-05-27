@@ -465,9 +465,21 @@ Adding a new problem is a 4-line change to [`bench/problems.json`](./bench/probl
 
 ## Star History
 
+<p>
+  <a href="https://github.com/UditAkhourii/adhd/stargazers">
+    <img alt="GitHub stars (live)" src="https://img.shields.io/github/stars/UditAkhourii/adhd?style=for-the-badge&logo=github&label=stars%20%E2%9A%A1%20live&color=blue">
+  </a>
+  &nbsp;
+  <a href="https://github.com/UditAkhourii/adhd/network/members">
+    <img alt="GitHub forks (live)" src="https://img.shields.io/github/forks/UditAkhourii/adhd?style=for-the-badge&logo=github&label=forks&color=blue">
+  </a>
+</p>
+
 <a href="https://www.star-history.com/#UditAkhourii/adhd&Date">
   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=UditAkhourii/adhd&type=Date" />
 </a>
+
+<sub>Live counters update within ~5 minutes via shields.io CDN. The history chart above is rendered by star-history.com which caches results every few hours, so the trend lags the live counter slightly.</sub>
 
 ---
 
