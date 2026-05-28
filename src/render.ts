@@ -14,13 +14,17 @@ const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 
-function chip(i: Idea): string {
-  if (!i.score) return "";
+function chip(i: Idea, show: boolean): string {
+  if (!show || !i.score) return "";
   const { novelty, viability, fit } = i.score;
   return dim(`[N${novelty} V${viability} F${fit}]`);
 }
 
-export function renderText(r: RunResult): string {
+// `chips: false` omits the self-rating chips. The eval judge renders without
+// them so the model's own scores don't leak into a blinded A/B comparison
+// (the baseline arm has no equivalent self-scoring) — see bench/AUDIT.md.
+export function renderText(r: RunResult, opts: { chips?: boolean } = {}): string {
+  const showChips = opts.chips ?? true;
   const out: string[] = [];
 
   out.push(bold("Problem: ") + r.problem);
@@ -39,7 +43,7 @@ export function renderText(r: RunResult): string {
   for (const [label, ideas] of byCluster) {
     out.push("  " + cyan(label));
     for (const i of ideas) {
-      out.push(`    - ${i.text} ${chip(i)}`);
+      out.push(`    - ${i.text} ${chip(i, showChips)}`);
     }
   }
   out.push("");
@@ -48,7 +52,7 @@ export function renderText(r: RunResult): string {
   out.push(bold("Converge — shortlist"));
   for (const i of r.shortlist) {
     const mark = r.nonObviousPick?.id === i.id ? green("★ non-obvious pick → ") : "  ";
-    out.push(`  ${mark}${i.text} ${chip(i)}`);
+    out.push(`  ${mark}${i.text} ${chip(i, showChips)}`);
     if (i.rationale) out.push(`    ${dim(i.rationale)}`);
   }
   out.push("");
