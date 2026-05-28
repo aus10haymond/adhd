@@ -22,6 +22,12 @@ import { duplicationRate, type DedupResult } from "./dedup.js";
 
 type Problem = { id: string; category: string; problem: string };
 
+// Pin the model so runs are reproducible. The SDK's default is environment-
+// resolved and was observed to silently fall back (Opus -> Haiku) under usage
+// limits — a moving default makes every cross-phase comparison invalid. All
+// three arms (ADHD, baseline, judge) use this one model.
+const EVAL_MODEL = "claude-haiku-4-5-20251001";
+
 const BASELINE_SYSTEM =
   "You are a thoughtful senior engineer. When asked to ideate on a problem, " +
   "give a useful answer with multiple approaches, tradeoffs, and a recommendation. " +
@@ -35,6 +41,7 @@ async function baseline(problem: string): Promise<Generated> {
   let usage = emptyUsage();
   const t0 = Date.now();
   const text = await callLLM({
+    model: EVAL_MODEL,
     systemPrompt: BASELINE_SYSTEM,
     userPrompt: `Ideate on this engineering problem:\n\n${problem}\n\nGive the user a useful answer.`,
     onUsage: (u) => { usage = u; },
@@ -51,6 +58,7 @@ async function adhd(problem: string): Promise<Generated> {
     topK: 3,
     concurrency: 4,
     codeMode: true,
+    model: EVAL_MODEL,
     onEvent: () => {},
   });
   // Strip ANSI for the judge — color codes are noise to the model. Omit the
@@ -113,7 +121,7 @@ async function main() {
     const outB = swapped ? adhdGen.text : base.text;
 
     console.error("  · judging…");
-    const verdict = await judge(p.problem, outA, outB);
+    const verdict = await judge(p.problem, outA, outB, EVAL_MODEL);
 
     rows.push({
       problemId: p.id,
