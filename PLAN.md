@@ -105,9 +105,12 @@ freeze a baseline of the current unmodified `main`.
   an `onUsage` side-channel; `run()` sums it into `RunResult.usage`; `results.json` gets a
   per-problem `cost` block (usage + ms) for both arms and `EVALS.md` a Cost & latency table.
   First data: ADHD ≈ 3.2× cost, 3.8× latency vs baseline.)
-- [ ] 0.9 Add an idea-duplication metric. Measure the percent of near-duplicate ideas
+- [x] 0.9 Add an idea-duplication metric. Measure the percent of near-duplicate ideas
   within a run (embedding cosine similarity or a judge-based check). Measure it now
-  even though dedup is not implemented until Phase 2.
+  even though dedup is not implemented until Phase 2. (Done: `bench/dedup.ts`
+  `duplicationRate` — dependency-free lexical token-Jaccard clustering, no API/judge cost.
+  Per-problem `dedup` in `results.json` + a Duplication section in `EVALS.md`. Labeled a
+  lexical proxy; Phase 2 may swap in semantic via the same interface.)
 - [ ] 0.10 Build the baseline. Run the full improved eval against the current unmodified
   `main`. Write to an immutable `baseline/` directory: `baseline/metrics.json`,
   `baseline/transcripts.json`, `baseline/SUMMARY.md`. Record the `main` git commit SHA

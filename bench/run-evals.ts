@@ -17,6 +17,7 @@ import { callLLM, emptyUsage } from "../src/llm.js";
 import type { CallUsage } from "../src/types.js";
 import { judge, DIMENSIONS, type Verdict } from "./judge.js";
 import { measure, type LengthMeasure } from "./length.js";
+import { duplicationRate, type DedupResult } from "./dedup.js";
 
 type Problem = { id: string; category: string; problem: string };
 
@@ -26,7 +27,8 @@ const BASELINE_SYSTEM =
   "Be substantive but not bloated.";
 
 // Each arm returns its output plus what it cost: token/USD usage and wall-clock.
-type Generated = { text: string; usage: CallUsage; ms: number };
+// ADHD also returns its raw divergence ideas, for the duplication metric (0.9).
+type Generated = { text: string; usage: CallUsage; ms: number; ideas: string[] };
 
 async function baseline(problem: string): Promise<Generated> {
   let usage = emptyUsage();
@@ -36,7 +38,7 @@ async function baseline(problem: string): Promise<Generated> {
     userPrompt: `Ideate on this engineering problem:\n\n${problem}\n\nGive the user a useful answer.`,
     onUsage: (u) => { usage = u; },
   });
-  return { text, usage, ms: Date.now() - t0 };
+  return { text, usage, ms: Date.now() - t0, ideas: [] };
 }
 
 async function adhd(problem: string): Promise<Generated> {
@@ -54,7 +56,8 @@ async function adhd(problem: string): Promise<Generated> {
   // self-rating chips too: stripping ANSI leaves the literal "[N V F]" text,
   // which is a self-score the baseline arm has no equivalent of (bench/AUDIT.md).
   const text = renderText(result, { chips: false }).replace(/\x1b\[[0-9;]*m/g, "");
-  return { text, usage: result.usage, ms: Date.now() - t0 };
+  const ideas = result.branches.flatMap((b) => b.ideas).map((i) => i.text);
+  return { text, usage: result.usage, ms: Date.now() - t0, ideas };
 }
 
 type RowResult = {
@@ -69,6 +72,7 @@ type RowResult = {
     adhd: { usage: CallUsage; ms: number };
     baseline: { usage: CallUsage; ms: number };
   };
+  dedup: DedupResult;                                        // task 0.9: ADHD idea duplication
   verdict: Verdict;
 };
 
@@ -122,6 +126,7 @@ async function main() {
         adhd: { usage: adhdGen.usage, ms: adhdGen.ms },
         baseline: { usage: base.usage, ms: base.ms },
       },
+      dedup: duplicationRate(adhdGen.ideas),
       verdict,
     });
 
@@ -265,6 +270,25 @@ function writeReport(rows: RowResult[]) {
   lines.push(`| mean latency (s) | ${(adhdMs / 1000).toFixed(1)} | ${(baseMs / 1000).toFixed(1)} | ${xOf(adhdMs, baseMs)} |`);
   lines.push("");
   lines.push(`_Per-problem usage + wall-clock are in \`bench/results.json\`._`);
+  lines.push("");
+
+  // Idea duplication (task 0.9): how redundant the divergence fan-out is. This
+  // is a pre-Phase-2 baseline; the dedup pass must move this number down.
+  const totalIdeas = sum((r) => r.dedup.total);
+  const totalDups = sum((r) => r.dedup.duplicates);
+  const meanRate = rows.reduce((s, r) => s + r.dedup.rate, 0) / rows.length;
+  const thr = rows[0]?.dedup.threshold ?? 0.5;
+  lines.push(`## Idea duplication (task 0.9)`);
+  lines.push("");
+  lines.push(`Near-duplicate rate among ADHD's raw divergence ideas (lexical token-Jaccard`);
+  lines.push(`≥ ${thr}, transitively clustered). Baseline produces prose, not discrete ideas, so`);
+  lines.push(`this applies to ADHD only. Pre-Phase-2 baseline; the dedup pass must lower it.`);
+  lines.push("");
+  lines.push(`- mean duplication rate: **${(meanRate * 100).toFixed(1)}%**`);
+  lines.push(`- ideas across all runs: ${totalIdeas}; near-duplicates: ${totalDups}`);
+  lines.push("");
+  lines.push(`_Lexical proxy — catches near-identical phrasing, misses paraphrase. Per-problem_`);
+  lines.push(`_counts in \`bench/results.json\`._`);
   lines.push("");
   lines.push(`## Per-problem verdicts`);
   lines.push("");
