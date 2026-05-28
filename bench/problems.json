@@ -1,18 +1,38 @@
 [
   {
     "id": "lru-100ms",
-    "category": "systems",
+    "category": "architecture",
     "problem": "Design a thread-safe LRU cache that survives process restart without losing more than the last 100ms of writes."
   },
   {
     "id": "llm-hang-cli",
-    "category": "ux/reliability",
+    "category": "architecture",
     "problem": "We have a CLI that calls an LLM and the LLM sometimes hangs for 90 seconds before responding. Design the right retry/timeout/UX strategy."
   },
   {
     "id": "rate-limit-leader",
-    "category": "distsys",
+    "category": "architecture",
     "problem": "Design a rate limiter that stays correct across a leader election. Existing leader had counters in memory; new leader takes over with no warning."
+  },
+  {
+    "id": "event-ordering",
+    "category": "architecture",
+    "problem": "A third-party webhook may deliver events out of order, duplicated, and retried for hours. Design how to process them so downstream state is correct and idempotent."
+  },
+  {
+    "id": "auth-model",
+    "category": "architecture",
+    "problem": "Design the authorization model for a multi-tenant SaaS where some resources are shared across tenants and some users belong to multiple tenants with different roles in each."
+  },
+  {
+    "id": "sdk-pagination",
+    "category": "api-design",
+    "problem": "Design the public API surface for paginating a list endpoint in a client SDK used by both first-time users and power users running large backfills. Optimize for hard-to-misuse."
+  },
+  {
+    "id": "cli-config-precedence",
+    "category": "api-design",
+    "problem": "Design how a CLI should resolve configuration when it can come from flags, environment variables, a user config file, and a project-local file. Generate approaches for precedence, discoverability, and debuggability."
   },
   {
     "id": "fuzzy-bug",
@@ -20,13 +40,48 @@
     "problem": "0.1% of API requests time out intermittently. No stack trace, no obvious pattern, no recent deploy. How should we investigate? Generate hypothesis classes, not specific fixes."
   },
   {
+    "id": "memory-creep",
+    "category": "debugging",
+    "problem": "A long-running service's memory grows slowly over days until it is OOM-killed about weekly. No single allocation site stands out in a heap dump. Generate hypothesis classes for where the growth could come from."
+  },
+  {
     "id": "monolith-split",
     "category": "refactor",
     "problem": "We have a 200k-line Rails monolith. The team wants to split it. Generate strategies for how to decompose it — by domain, data, team, churn, or otherwise."
   },
   {
+    "id": "orm-to-sql",
+    "category": "refactor",
+    "problem": "Plan migrating a large codebase off a heavy ORM toward hand-written SQL for hot paths, without a big-bang rewrite and without freezing feature work. Generate incremental strategies."
+  },
+  {
     "id": "naming-feature-flag",
     "category": "naming",
     "problem": "Generate names for a feature-flag service that supports gradual rollout, kill-switches, and per-tenant overrides. The name should signal control and reversibility."
+  },
+  {
+    "id": "naming-async-queue",
+    "category": "naming",
+    "problem": "Generate names for an internal async job-queue library whose selling points are durability and making retries/failures visible. The name should signal reliability without sounding boring."
+  },
+  {
+    "id": "review-payment-handler",
+    "category": "code-review",
+    "problem": "Widen a code review of a handler that deducts a user's account balance and then calls an external payment API. Beyond the obvious checklist, generate the classes of things that could go wrong here."
+  },
+  {
+    "id": "pricing-devtool",
+    "category": "strategy",
+    "problem": "Generate pricing-model strategies for a developer tool whose users range from solo hobbyists to large enterprises with procurement teams. Surface non-obvious models and their failure modes."
+  },
+  {
+    "id": "positioning-launch",
+    "category": "strategy",
+    "problem": "Generate positioning angles for launching an open-source observability tool into a crowded market dominated by well-funded incumbents. We need angles that are defensible, not just contrarian."
+  },
+  {
+    "id": "agent-tool-choice",
+    "category": "agent-loop",
+    "problem": "Inside an agent loop, at each step the model must decide whether to call a tool, ask the user a question, or answer directly. Generate strategies for making that decision robustly without thrashing or premature convergence."
   }
 ]

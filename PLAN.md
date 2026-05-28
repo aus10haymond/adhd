@@ -95,8 +95,11 @@ freeze a baseline of the current unmodified `main`.
   (Done: 5 problems chosen; template + `bench/calibration.ts` with `calib:prepare`
   (writes blinded A/B docs) and `calib:report` (overall + per-dim agreement). Generated
   artifacts gitignored; the human fills ratings against the 0.10 baseline run.)
-- [ ] 0.7 Expand the problem set from ~6 to at least 15 problems in `bench/problems.json`,
-  covering the categories listed in the README "use it for" section.
+- [x] 0.7 Expand the problem set from ~6 to at least 15 problems in `bench/problems.json`,
+  covering the categories listed in the README "use it for" section. (Done: 17 problems
+  spanning all 8 README buckets — architecture, api-design, debugging, refactor, naming,
+  code-review, strategy, agent-loop. Original 6 IDs unchanged; categories normalized to
+  the README taxonomy.)
 - [ ] 0.8 Add cost and latency capture. Record input tokens, output tokens, USD, and
   wall-clock time per run into the results file.
 - [ ] 0.9 Add an idea-duplication metric. Measure the percent of near-duplicate ideas
