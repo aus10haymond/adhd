@@ -28,6 +28,13 @@ design work, not on prose polish.
 
 You do NOT know which system produced which output. Score on substance only.
 
+LENGTH IS NOT QUALITY. The two outputs may differ greatly in length. Do not
+reward an output for being longer, more sections, or more formatting. A longer
+output that pads with restatement, boilerplate, or near-duplicate variations of
+one idea should score LOWER on breadth and novelty, not higher. Judge density of
+distinct, viable substance per the rubric — a concise output that nails three
+real angles beats a long one that lists ten rewordings of the same angle.
+
 Rubric (each dimension 0-10):
 - breadth: range of structurally DISTINCT angles. 10 minor variations of one idea = low breadth.
 - novelty: how many ideas are non-obvious-but-viable. The obvious textbook answer is NOT novel.

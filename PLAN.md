@@ -79,9 +79,11 @@ freeze a baseline of the current unmodified `main`.
   single-shot baseline output, per problem, into the results file. (See `bench/length.ts`;
   `results.json` now carries `lengths` per row + a length table in `EVALS.md`. Existing
   runs show ADHD ≈ 4.3× longer than baseline — confirms the verbosity-bias concern for 0.4.)
-- [ ] 0.4 Implement length-controlled judging. At minimum: (a) explicitly instruct the
+- [x] 0.4 Implement length-controlled judging. At minimum: (a) explicitly instruct the
   judge to ignore length and verbosity, and (b) report win rate stratified by output
-  length bucket so verbosity-driven wins are visible.
+  length bucket so verbosity-driven wins are visible. (Done: judge system prompt now has
+  a LENGTH-IS-NOT-QUALITY rule; `EVALS.md` adds a win-rate-by-length-bucket table. Also
+  folded in the audit's score-chip-leak fix — judge renders with `chips: false`.)
 - [ ] 0.5 Implement a pairwise tournament judging harness. Replace absolute 1-10 scoring
   with pairwise A/B comparison plus an explicit "tie" option. Keep the existing A/B
   order randomization.

@@ -41,8 +41,10 @@ async function adhd(problem: string): Promise<string> {
     codeMode: true,
     onEvent: () => {},
   });
-  // Strip ANSI for the judge — color codes are noise to the model.
-  return renderText(result).replace(/\x1b\[[0-9;]*m/g, "");
+  // Strip ANSI for the judge — color codes are noise to the model. Omit the
+  // self-rating chips too: stripping ANSI leaves the literal "[N V F]" text,
+  // which is a self-score the baseline arm has no equivalent of (bench/AUDIT.md).
+  return renderText(result, { chips: false }).replace(/\x1b\[[0-9;]*m/g, "");
 }
 
 type RowResult = {
@@ -190,6 +192,37 @@ function writeReport(rows: RowResult[]) {
   lines.push(`| **mean** | **${fmt(meanAdhdTok)}** | **${fmt(meanBaseTok)}** | **${meanRatio}** | |`);
   lines.push("");
   lines.push(`_estTokens = chars/4 (estimate); exact chars + words per output are in \`bench/results.json\`._`);
+  lines.push("");
+
+  // Win rate stratified by the ADHD:baseline length ratio. If ADHD wins
+  // concentrate in the high-ratio buckets, the win is plausibly length-driven
+  // rather than substance-driven — the verbosity-bias check from task 0.4.
+  lines.push(`## Win rate by length bucket (task 0.4)`);
+  lines.push("");
+  lines.push(`Problems grouped by ADHD:baseline length ratio. If ADHD's wins cluster in`);
+  lines.push(`the high-ratio buckets, the headline may be verbosity-driven, not substance.`);
+  lines.push("");
+  const buckets = [
+    { label: "≤ 2× (similar length)", test: (r: number) => r <= 2 },
+    { label: "2×–4×", test: (r: number) => r > 2 && r <= 4 },
+    { label: "> 4× (much longer)", test: (r: number) => r > 4 },
+  ];
+  lines.push(`| Length ratio | n | ADHD W | L | T | ADHD win rate |`);
+  lines.push(`| --- | ---: | ---: | ---: | ---: | ---: |`);
+  for (const b of buckets) {
+    const inB = rows.filter((r) => {
+      const ratio = r.lengths.baseline.estTokens === 0 ? Infinity : r.lengths.adhd.estTokens / r.lengths.baseline.estTokens;
+      return b.test(ratio);
+    });
+    const w = inB.filter((r) => adhdWon(r) === "win").length;
+    const l = inB.filter((r) => adhdWon(r) === "loss").length;
+    const t = inB.filter((r) => adhdWon(r) === "tie").length;
+    const rate = inB.length === 0 ? "—" : `${Math.round((w / inB.length) * 100)}%`;
+    lines.push(`| ${b.label} | ${inB.length} | ${w} | ${l} | ${t} | ${rate} |`);
+  }
+  lines.push("");
+  lines.push(`_With a small problem set these buckets are thin; the signal sharpens as the_`);
+  lines.push(`_problem count grows (task 0.7)._`);
   lines.push("");
   lines.push(`## Per-problem verdicts`);
   lines.push("");
