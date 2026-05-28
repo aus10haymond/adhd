@@ -115,6 +115,12 @@ freeze a baseline of the current unmodified `main`.
   `main`. Write to an immutable `baseline/` directory: `baseline/metrics.json`,
   `baseline/transcripts.json`, `baseline/SUMMARY.md`. Record the `main` git commit SHA
   in the summary.
+  BLOCKED (2026-05-28): writer + model pin (`claude-haiku-4-5`, commit 914af44) are done.
+  Full pinned run failed at problem 15/17 with a non-JSON stream message ("Claude con…"),
+  i.e. an apparent usage-limit/throttle. Retry `npm run evals -- --baseline` once usage
+  resets. An earlier *complete but unpinned* Haiku run sits in untracked `baseline/` as a
+  fallback — do not commit it; regenerate clean under the pin. Also observed: the SDK
+  default silently fell back Opus 4.5 → Haiku 4.5 between runs (why the pin exists).
 - [ ] 0.11 Write `bench/README.md` documenting how to run the eval and how to compare a
   run to the baseline. Add npm scripts `bench:baseline` and `bench:compare`.
 
