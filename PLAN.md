@@ -72,9 +72,9 @@ freeze a baseline of the current unmodified `main`.
 - [x] 0.1 Audit the current eval. Read `bench/`, `EVALS.md`, and `bench/problems.json`.
   Write `bench/AUDIT.md` describing: how problems are scored, the exact judge prompt,
   the number of problems, and every source of bias you can identify.
-- [ ] 0.2 Measure current judge noise. Run the existing eval suite 3 times with no code
+- [x] 0.2 Measure current judge noise. Run the existing eval suite 3 times with no code
   changes. Record per-problem verdict variance. Flag any problem whose winner flips
-  across runs.
+  across runs. (See `bench/NOISE.md`: 0% winner-flip rate across 3 runs; best-of-3 voting not required.)
 - [ ] 0.3 Add length instrumentation. Log the token count of every ADHD output and every
   single-shot baseline output, per problem, into the results file.
 - [ ] 0.4 Implement length-controlled judging. At minimum: (a) explicitly instruct the
