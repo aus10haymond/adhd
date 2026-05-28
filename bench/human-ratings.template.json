@@ -1,0 +1,74 @@
+{
+  "_README": [
+    "Human calibration ratings (Phase 0, task 0.6). Purpose: check whether the LLM",
+    "judge agrees with a human on the same blinded A/B comparisons. If they disagree",
+    "often, the judge cannot be trusted as the eval's scoreboard.",
+    "",
+    "HOW TO USE:",
+    "1. Run `npm run calib:prepare`. This reads the latest bench/results.json and writes",
+    "   one blinded comparison doc per problem to bench/calibration/<id>.md (Output A vs",
+    "   Output B, with NO indication of which system produced which).",
+    "2. Copy this file to bench/human-ratings.json.",
+    "3. For each problem, read its doc and fill in your pairwise preference. Use exactly",
+    "   \"A\", \"B\", or \"tie\" for each field. Rate on substance per the rubric, NOT length.",
+    "   Do NOT look at bench/results.json or bench/calibration/_key.json while rating —",
+    "   that would reveal which side is which and defeat the blinding.",
+    "4. Run `npm run calib:report` to see agreement between you and the LLM judge.",
+    "",
+    "Rubric (same as the judge): breadth (distinct angles), novelty (non-obvious-but-",
+    "viable), trap_detection (names traps with reasons), actionability (sketch + risk +",
+    "first step), builder_usefulness (would you ship from it). overall = your net pick."
+  ],
+  "ratings": [
+    {
+      "problemId": "lru-100ms",
+      "overall": "",
+      "breadth": "",
+      "novelty": "",
+      "trap_detection": "",
+      "actionability": "",
+      "builder_usefulness": "",
+      "notes": ""
+    },
+    {
+      "problemId": "llm-hang-cli",
+      "overall": "",
+      "breadth": "",
+      "novelty": "",
+      "trap_detection": "",
+      "actionability": "",
+      "builder_usefulness": "",
+      "notes": ""
+    },
+    {
+      "problemId": "fuzzy-bug",
+      "overall": "",
+      "breadth": "",
+      "novelty": "",
+      "trap_detection": "",
+      "actionability": "",
+      "builder_usefulness": "",
+      "notes": ""
+    },
+    {
+      "problemId": "monolith-split",
+      "overall": "",
+      "breadth": "",
+      "novelty": "",
+      "trap_detection": "",
+      "actionability": "",
+      "builder_usefulness": "",
+      "notes": ""
+    },
+    {
+      "problemId": "naming-feature-flag",
+      "overall": "",
+      "breadth": "",
+      "novelty": "",
+      "trap_detection": "",
+      "actionability": "",
+      "builder_usefulness": "",
+      "notes": ""
+    }
+  ]
+}

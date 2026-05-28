@@ -89,9 +89,12 @@ freeze a baseline of the current unmodified `main`.
   order randomization. (Done: reusable `bench/pairwise.ts` `comparePair` primitive — judge
   now returns per-dimension A/B/tie preference, no 0–10 scores. `EVALS.md` reports
   per-dimension pairwise win counts. A/B randomization retained. Reused by task 1.2.)
-- [ ] 0.6 Add a human-rated calibration subset. Pick 5 problems. Create
+- [x] 0.6 Add a human-rated calibration subset. Pick 5 problems. Create
   `bench/human-ratings.template.json` for a person to fill in pairwise preferences.
   Add a script that reports agreement between the LLM judge and the human ratings.
+  (Done: 5 problems chosen; template + `bench/calibration.ts` with `calib:prepare`
+  (writes blinded A/B docs) and `calib:report` (overall + per-dim agreement). Generated
+  artifacts gitignored; the human fills ratings against the 0.10 baseline run.)
 - [ ] 0.7 Expand the problem set from ~6 to at least 15 problems in `bench/problems.json`,
   covering the categories listed in the README "use it for" section.
 - [ ] 0.8 Add cost and latency capture. Record input tokens, output tokens, USD, and
