@@ -100,8 +100,11 @@ freeze a baseline of the current unmodified `main`.
   spanning all 8 README buckets — architecture, api-design, debugging, refactor, naming,
   code-review, strategy, agent-loop. Original 6 IDs unchanged; categories normalized to
   the README taxonomy.)
-- [ ] 0.8 Add cost and latency capture. Record input tokens, output tokens, USD, and
-  wall-clock time per run into the results file.
+- [x] 0.8 Add cost and latency capture. Record input tokens, output tokens, USD, and
+  wall-clock time per run into the results file. (Done: `callLLM` surfaces SDK usage via
+  an `onUsage` side-channel; `run()` sums it into `RunResult.usage`; `results.json` gets a
+  per-problem `cost` block (usage + ms) for both arms and `EVALS.md` a Cost & latency table.
+  First data: ADHD ≈ 3.2× cost, 3.8× latency vs baseline.)
 - [ ] 0.9 Add an idea-duplication metric. Measure the percent of near-duplicate ideas
   within a run (embedding cosine similarity or a judge-based check). Measure it now
   even though dedup is not implemented until Phase 2.
