@@ -14,7 +14,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { run } from "../src/index.js";
 import { renderText } from "../src/render.js";
 import { callLLM } from "../src/llm.js";
-import { judge, type Verdict } from "./judge.js";
+import { judge, DIMENSIONS, type Verdict } from "./judge.js";
 import { measure, type LengthMeasure } from "./length.js";
 
 type Problem = { id: string; category: string; problem: string };
@@ -109,10 +109,10 @@ async function main() {
 
     const adhdLabel = swapped ? "B" : "A";
     const baseLabel = swapped ? "A" : "B";
-    const adhdWon =
-      verdict.overall_winner === adhdLabel ? "ADHD wins" :
-      verdict.overall_winner === baseLabel ? "baseline wins" : "tie";
-    console.error(`  → ${adhdWon} :: ${verdict.one_line_summary}`);
+    const outcome =
+      verdict.overall === adhdLabel ? "ADHD wins" :
+      verdict.overall === baseLabel ? "baseline wins" : "tie";
+    console.error(`  → ${outcome} :: ${verdict.summary}`);
   }
 
   writeReport(rows);
@@ -120,55 +120,51 @@ async function main() {
   console.error(`\n✓ wrote EVALS.md + bench/results.json`);
 }
 
-function adhdScore(r: RowResult, dim: keyof Verdict): number {
-  const v = r.verdict[dim] as { a: number; b: number };
-  return r.swapped ? v.b : v.a;
-}
-function baselineScore(r: RowResult, dim: keyof Verdict): number {
-  const v = r.verdict[dim] as { a: number; b: number };
-  return r.swapped ? v.a : v.b;
-}
-function adhdWon(r: RowResult): "win" | "loss" | "tie" {
-  const adhdLabel = r.swapped ? "B" : "A";
-  const baseLabel = r.swapped ? "A" : "B";
-  if (r.verdict.overall_winner === adhdLabel) return "win";
-  if (r.verdict.overall_winner === baseLabel) return "loss";
+type Outcome = "win" | "loss" | "tie";
+
+// Map a blinded A/B/tie preference back to ADHD's perspective via `swapped`.
+function fromAdhd(pref: "A" | "B" | "tie", swapped: boolean): Outcome {
+  const adhdLabel = swapped ? "B" : "A";
+  const baseLabel = swapped ? "A" : "B";
+  if (pref === adhdLabel) return "win";
+  if (pref === baseLabel) return "loss";
   return "tie";
+}
+function adhdDim(r: RowResult, key: string): Outcome {
+  return fromAdhd(r.verdict.perCriterion[key]?.winner ?? "tie", r.swapped);
+}
+function adhdWon(r: RowResult): Outcome {
+  return fromAdhd(r.verdict.overall, r.swapped);
 }
 
 function writeReport(rows: RowResult[]) {
-  const dims = ["breadth", "novelty", "trap_detection", "actionability", "builder_usefulness"] as const;
-
-  const meanADHD = Object.fromEntries(
-    dims.map((d) => [d, rows.reduce((s, r) => s + adhdScore(r, d), 0) / rows.length]),
-  ) as Record<(typeof dims)[number], number>;
-  const meanBase = Object.fromEntries(
-    dims.map((d) => [d, rows.reduce((s, r) => s + baselineScore(r, d), 0) / rows.length]),
-  ) as Record<(typeof dims)[number], number>;
+  const dims = DIMENSIONS.map((d) => d.key);
 
   const wins = rows.filter((r) => adhdWon(r) === "win").length;
   const losses = rows.filter((r) => adhdWon(r) === "loss").length;
   const ties = rows.filter((r) => adhdWon(r) === "tie").length;
 
   const fmt = (n: number) => n.toFixed(2);
-  const delta = (a: number, b: number) => {
-    const d = a - b;
-    return (d >= 0 ? "+" : "") + fmt(d);
-  };
 
   const lines: string[] = [];
   lines.push(`# ADHD vs baseline — evals`);
   lines.push("");
   lines.push(`Run: ${new Date().toISOString()} · problems: ${rows.length}`);
   lines.push("");
-  lines.push(`**Headline:** ADHD ${wins}W / ${losses}L / ${ties}T vs single-shot baseline.`);
+  lines.push(`**Headline:** ADHD ${wins}W / ${losses}L / ${ties}T vs single-shot baseline (pairwise overall).`);
   lines.push("");
-  lines.push(`## Aggregate scores (mean across problems, 0–10)`);
+  lines.push(`## Pairwise wins by dimension`);
   lines.push("");
-  lines.push(`| Dimension | ADHD | Baseline | Δ |`);
+  lines.push(`Per-dimension A/B preference (no absolute scores — see task 0.5). Each cell`);
+  lines.push(`counts how often ADHD was preferred / baseline preferred / tie, across ${rows.length} problems.`);
+  lines.push("");
+  lines.push(`| Dimension | ADHD W | base W | tie |`);
   lines.push(`| --- | ---: | ---: | ---: |`);
   for (const d of dims) {
-    lines.push(`| ${d} | ${fmt(meanADHD[d])} | ${fmt(meanBase[d])} | ${delta(meanADHD[d], meanBase[d])} |`);
+    const w = rows.filter((r) => adhdDim(r, d) === "win").length;
+    const l = rows.filter((r) => adhdDim(r, d) === "loss").length;
+    const t = rows.filter((r) => adhdDim(r, d) === "tie").length;
+    lines.push(`| ${d} | ${w} | ${l} | ${t} |`);
   }
   lines.push("");
   lines.push(`## Output length (task 0.3 instrumentation)`);
@@ -233,19 +229,21 @@ function writeReport(rows: RowResult[]) {
     lines.push("");
     lines.push(`> ${r.problem}`);
     lines.push("");
-    lines.push(`**Verdict:** ${r.verdict.one_line_summary}`);
+    lines.push(`**Verdict:** ${r.verdict.summary}`);
     lines.push("");
-    lines.push(`| dim | ADHD | base | reason |`);
-    lines.push(`| --- | ---: | ---: | --- |`);
+    lines.push(`| dim | preferred | reason |`);
+    lines.push(`| --- | :---: | --- |`);
     for (const d of dims) {
-      const reason = (r.verdict[d] as { reason: string }).reason.replace(/\|/g, "\\|");
-      lines.push(`| ${d} | ${adhdScore(r, d)} | ${baselineScore(r, d)} | ${reason} |`);
+      const o = adhdDim(r, d);
+      const pref = o === "win" ? "ADHD" : o === "loss" ? "base" : "tie";
+      const reason = (r.verdict.perCriterion[d]?.reason ?? "").replace(/\|/g, "\\|");
+      lines.push(`| ${d} | ${pref} | ${reason} |`);
     }
     lines.push("");
   }
   lines.push("---");
   lines.push("");
-  lines.push(`_Methodology: each problem run through ADHD (5 frames × 6 ideas, top-3 deepened) and a single-shot baseline using the same model. A/B order randomized per problem to balance positional bias. Judged by a separate LLM call with a skeptical-staff-engineer system prompt._`);
+  lines.push(`_Methodology: each problem run through ADHD (5 frames × 6 ideas, top-3 deepened) and a single-shot baseline using the same model. A/B order randomized per problem to balance positional bias. Judged by a separate LLM call (skeptical staff engineer) doing pairwise A/B/tie preference per dimension — no absolute scores — with an explicit length-is-not-quality instruction._`);
   lines.push("");
   lines.push(`_Full transcripts: see \`bench/results.json\`._`);
 
