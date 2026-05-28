@@ -32,6 +32,18 @@ Reach for it on **design decisions, fuzzy debugging, naming, API surface design,
 
 ---
 
+## Early adopters
+
+Projects that officially ship or integrate ADHD:
+
+| Project | What they did | Status |
+|---|---|---|
+| [**repowire**](https://github.com/prassanna-ravishankar/repowire) | Ported ADHD onto repowire's mesh-orchestrator primitives — frames become frame-shifted temp peers, generator/critic split maps to separate peers vs. the orchestrator's turn. Ships in the default orchestrator template. ([PR #313](https://github.com/prassanna-ravishankar/repowire/pull/313)) | ✅ Merged · MIT attribution |
+
+Shipping ADHD in your project? Open a PR adding it here, or [open an issue](https://github.com/UditAkhourii/adhd/issues/new) and we'll add you.
+
+---
+
 ## Install
 
 One command, auto-detects your agent (Claude Code, Cursor, Antigravity, Codex, Cline, Gemini CLI, Windsurf, and ~50 more):
