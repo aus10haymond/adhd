@@ -35,6 +35,7 @@ export function addUsage(a: CallUsage, b: CallUsage): CallUsage {
     cacheReadInputTokens: a.cacheReadInputTokens + b.cacheReadInputTokens,
     cacheCreationInputTokens: a.cacheCreationInputTokens + b.cacheCreationInputTokens,
     costUSD: a.costUSD + b.costUSD,
+    model: b.model ?? a.model,
   };
 }
 
@@ -69,6 +70,7 @@ export async function callLLM(opts: LLMOptions): Promise<string> {
         cacheReadInputTokens: u.cache_read_input_tokens ?? 0,
         cacheCreationInputTokens: u.cache_creation_input_tokens ?? 0,
         costUSD: message.total_cost_usd ?? 0,
+        model: Object.keys(message.modelUsage ?? {})[0],
       });
     }
   }
