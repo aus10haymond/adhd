@@ -1,49 +1,30 @@
-// LLM-as-judge.
+// LLM-as-judge for the eval.
 //
-// We can't ground-truth ideation, so we use a separate critic pass to score
+// We can't ground-truth ideation, so we use a separate critic pass to compare
 // two outputs (ADHD vs baseline) on the dimensions that matter for *open-ended*
 // design work: breadth, novelty, trap detection, actionability, and overall
 // usefulness to a builder.
 //
-// To reduce same-model bias: the judge runs with a system prompt that asks
-// for adversarial reading ("be a skeptical staff engineer"), and it sees BOTH
-// outputs blinded (labelled A/B in random order per problem) so positional bias
-// is balanced across runs.
+// As of task 0.5 the judge is PAIRWISE: instead of rating each output 0-10 (an
+// absolute scale that quietly rewards verbosity), it picks a winner per
+// dimension ("A", "B", or "tie"). The actual comparison logic lives in the
+// reusable harness `comparePair` (bench/pairwise.ts); this module only defines
+// the eval's rubric. To reduce same-model bias the judge reads adversarially
+// ("skeptical staff engineer") and sees both outputs blinded, in an A/B order
+// the caller randomizes per problem.
 
-import { callLLM, parseJSON } from "../src/llm.js";
+import { comparePair, type Criterion, type PairResult } from "./pairwise.js";
 
-export type Verdict = {
-  breadth: { a: number; b: number; reason: string };       // 0-10, range of distinct angles
-  novelty: { a: number; b: number; reason: string };       // 0-10, non-obvious-but-viable
-  trap_detection: { a: number; b: number; reason: string };// 0-10, names traps with reasons
-  actionability: { a: number; b: number; reason: string }; // 0-10, gives concrete first steps
-  builder_usefulness: { a: number; b: number; reason: string }; // 0-10, would a builder ship from this?
-  overall_winner: "A" | "B" | "tie";
-  one_line_summary: string;
-};
+// Re-exported as the eval's verdict type; it's a plain pairwise result.
+export type Verdict = PairResult;
 
-const JUDGE_SYSTEM = `You are a skeptical staff engineer reviewing two ideation outputs (A and B)
-for the same problem. Your job is to score them on the dimensions of open-ended
-design work, not on prose polish.
-
-You do NOT know which system produced which output. Score on substance only.
-
-LENGTH IS NOT QUALITY. The two outputs may differ greatly in length. Do not
-reward an output for being longer, more sections, or more formatting. A longer
-output that pads with restatement, boilerplate, or near-duplicate variations of
-one idea should score LOWER on breadth and novelty, not higher. Judge density of
-distinct, viable substance per the rubric — a concise output that nails three
-real angles beats a long one that lists ten rewordings of the same angle.
-
-Rubric (each dimension 0-10):
-- breadth: range of structurally DISTINCT angles. 10 minor variations of one idea = low breadth.
-- novelty: how many ideas are non-obvious-but-viable. The obvious textbook answer is NOT novel.
-- trap_detection: does it name ideas that look good but are traps, with reasons?
-- actionability: does the top recommendation have a sketch, named risk, and first concrete step?
-- builder_usefulness: if you were the engineer who had to ship, which is more useful to you?
-
-Then declare overall_winner: "A", "B", or "tie".
-Output JSON only. No prose preamble.`;
+export const DIMENSIONS: Criterion[] = [
+  { key: "breadth", description: "range of structurally DISTINCT angles. Ten minor variations of one idea = low breadth." },
+  { key: "novelty", description: "how many ideas are non-obvious-but-viable. The obvious textbook answer is NOT novel." },
+  { key: "trap_detection", description: "does it name ideas that look good but are traps, with reasons?" },
+  { key: "actionability", description: "does the top recommendation have a sketch, named risk, and first concrete step?" },
+  { key: "builder_usefulness", description: "if you had to ship, which is more useful to you?" },
+];
 
 export async function judge(
   problem: string,
@@ -51,30 +32,5 @@ export async function judge(
   outputB: string,
   model?: string,
 ): Promise<Verdict> {
-  const userPrompt = `PROBLEM:
-${problem}
-
-OUTPUT A:
-${outputA}
-
----
-
-OUTPUT B:
-${outputB}
-
----
-
-Score both on the rubric. Output JSON of shape:
-{
-  "breadth": {"a": 0-10, "b": 0-10, "reason": "..."},
-  "novelty": {"a": 0-10, "b": 0-10, "reason": "..."},
-  "trap_detection": {"a": 0-10, "b": 0-10, "reason": "..."},
-  "actionability": {"a": 0-10, "b": 0-10, "reason": "..."},
-  "builder_usefulness": {"a": 0-10, "b": 0-10, "reason": "..."},
-  "overall_winner": "A" | "B" | "tie",
-  "one_line_summary": "..."
-}`;
-
-  const raw = await callLLM({ model, systemPrompt: JUDGE_SYSTEM, userPrompt });
-  return parseJSON<Verdict>(raw);
+  return comparePair(problem, outputA, outputB, DIMENSIONS, { model });
 }

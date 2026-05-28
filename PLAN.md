@@ -84,9 +84,11 @@ freeze a baseline of the current unmodified `main`.
   length bucket so verbosity-driven wins are visible. (Done: judge system prompt now has
   a LENGTH-IS-NOT-QUALITY rule; `EVALS.md` adds a win-rate-by-length-bucket table. Also
   folded in the audit's score-chip-leak fix — judge renders with `chips: false`.)
-- [ ] 0.5 Implement a pairwise tournament judging harness. Replace absolute 1-10 scoring
+- [x] 0.5 Implement a pairwise tournament judging harness. Replace absolute 1-10 scoring
   with pairwise A/B comparison plus an explicit "tie" option. Keep the existing A/B
-  order randomization.
+  order randomization. (Done: reusable `bench/pairwise.ts` `comparePair` primitive — judge
+  now returns per-dimension A/B/tie preference, no 0–10 scores. `EVALS.md` reports
+  per-dimension pairwise win counts. A/B randomization retained. Reused by task 1.2.)
 - [ ] 0.6 Add a human-rated calibration subset. Pick 5 problems. Create
   `bench/human-ratings.template.json` for a person to fill in pairwise preferences.
   Add a script that reports agreement between the LLM judge and the human ratings.
