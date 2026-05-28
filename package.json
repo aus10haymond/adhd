@@ -22,7 +22,9 @@
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
     "evals": "tsx bench/run-evals.ts",
-    "evals:quick": "tsx bench/run-evals.ts --quick"
+    "evals:quick": "tsx bench/run-evals.ts --quick",
+    "calib:prepare": "tsx bench/calibration.ts prepare",
+    "calib:report": "tsx bench/calibration.ts report"
   },
   "keywords": [
     "adhd",

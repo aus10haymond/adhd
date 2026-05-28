@@ -2,3 +2,8 @@ node_modules
 dist
 .env
 *.log
+
+# Generated calibration artifacts (task 0.6). The template is committed; the
+# filled ratings, per-run blinded docs, blinding key, and agreement report are not.
+bench/human-ratings.json
+bench/calibration/
