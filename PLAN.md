@@ -75,8 +75,10 @@ freeze a baseline of the current unmodified `main`.
 - [x] 0.2 Measure current judge noise. Run the existing eval suite 3 times with no code
   changes. Record per-problem verdict variance. Flag any problem whose winner flips
   across runs. (See `bench/NOISE.md`: 0% winner-flip rate across 3 runs; best-of-3 voting not required.)
-- [ ] 0.3 Add length instrumentation. Log the token count of every ADHD output and every
-  single-shot baseline output, per problem, into the results file.
+- [x] 0.3 Add length instrumentation. Log the token count of every ADHD output and every
+  single-shot baseline output, per problem, into the results file. (See `bench/length.ts`;
+  `results.json` now carries `lengths` per row + a length table in `EVALS.md`. Existing
+  runs show ADHD ≈ 4.3× longer than baseline — confirms the verbosity-bias concern for 0.4.)
 - [ ] 0.4 Implement length-controlled judging. At minimum: (a) explicitly instruct the
   judge to ignore length and verbosity, and (b) report win rate stratified by output
   length bucket so verbosity-driven wins are visible.

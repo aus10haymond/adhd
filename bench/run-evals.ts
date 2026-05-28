@@ -15,6 +15,7 @@ import { run } from "../src/index.js";
 import { renderText } from "../src/render.js";
 import { callLLM } from "../src/llm.js";
 import { judge, type Verdict } from "./judge.js";
+import { measure, type LengthMeasure } from "./length.js";
 
 type Problem = { id: string; category: string; problem: string };
 
@@ -51,6 +52,7 @@ type RowResult = {
   swapped: boolean;            // if true, A=baseline, B=adhd; else A=adhd, B=baseline
   baselineOutput: string;
   adhdOutput: string;
+  lengths: { adhd: LengthMeasure; baseline: LengthMeasure }; // task 0.3 instrumentation
   verdict: Verdict;
 };
 
@@ -99,6 +101,7 @@ async function main() {
       swapped,
       baselineOutput,
       adhdOutput,
+      lengths: { adhd: measure(adhdOutput), baseline: measure(baselineOutput) },
       verdict,
     });
 
@@ -165,6 +168,28 @@ function writeReport(rows: RowResult[]) {
   for (const d of dims) {
     lines.push(`| ${d} | ${fmt(meanADHD[d])} | ${fmt(meanBase[d])} | ${delta(meanADHD[d], meanBase[d])} |`);
   }
+  lines.push("");
+  lines.push(`## Output length (task 0.3 instrumentation)`);
+  lines.push("");
+  lines.push(`Length of the artifact the judge actually reads, per problem. The ratio`);
+  lines.push(`exposes verbosity asymmetry — if ADHD wins are concentrated where its ratio`);
+  lines.push(`is highest, the win may be length-driven (see task 0.4).`);
+  lines.push("");
+  lines.push(`| Problem | ADHD tok | Base tok | ADHD:Base | Winner |`);
+  lines.push(`| --- | ---: | ---: | ---: | :---: |`);
+  for (const r of rows) {
+    const ratio = r.lengths.baseline.estTokens === 0
+      ? "—"
+      : (r.lengths.adhd.estTokens / r.lengths.baseline.estTokens).toFixed(2) + "×";
+    const w = adhdWon(r) === "win" ? "ADHD" : adhdWon(r) === "loss" ? "base" : "tie";
+    lines.push(`| ${r.problemId} | ${r.lengths.adhd.estTokens} | ${r.lengths.baseline.estTokens} | ${ratio} | ${w} |`);
+  }
+  const meanAdhdTok = rows.reduce((s, r) => s + r.lengths.adhd.estTokens, 0) / rows.length;
+  const meanBaseTok = rows.reduce((s, r) => s + r.lengths.baseline.estTokens, 0) / rows.length;
+  const meanRatio = meanBaseTok === 0 ? "—" : (meanAdhdTok / meanBaseTok).toFixed(2) + "×";
+  lines.push(`| **mean** | **${fmt(meanAdhdTok)}** | **${fmt(meanBaseTok)}** | **${meanRatio}** | |`);
+  lines.push("");
+  lines.push(`_estTokens = chars/4 (estimate); exact chars + words per output are in \`bench/results.json\`._`);
   lines.push("");
   lines.push(`## Per-problem verdicts`);
   lines.push("");
