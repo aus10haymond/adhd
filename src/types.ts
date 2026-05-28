@@ -32,6 +32,7 @@ export type CallUsage = {
   cacheReadInputTokens: number;
   cacheCreationInputTokens: number;
   costUSD: number;
+  model?: string;   // resolved model name (the SDK picks the default when unset)
 };
 
 export type RunResult = {

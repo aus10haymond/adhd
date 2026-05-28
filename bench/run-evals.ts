@@ -10,7 +10,8 @@
 // Order of A/B in the prompt is randomized per problem to balance positional
 // bias; the mapping is recorded so aggregates can be computed correctly.
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { run } from "../src/index.js";
 import { renderText } from "../src/render.js";
 import { callLLM, emptyUsage } from "../src/llm.js";
@@ -141,6 +142,11 @@ async function main() {
   writeReport(rows);
   writeJson(rows);
   console.error(`\n✓ wrote EVALS.md + bench/results.json`);
+
+  if (hasFlag("--baseline")) {
+    writeBaseline(rows);
+    console.error(`✓ wrote immutable baseline/ (do not edit by hand)`);
+  }
 }
 
 type Outcome = "win" | "loss" | "tie";
@@ -322,6 +328,130 @@ function writeReport(rows: RowResult[]) {
 
 function writeJson(rows: RowResult[]) {
   writeFileSync("bench/results.json", JSON.stringify(rows, null, 2));
+}
+
+// Machine-readable aggregate metrics — the canonical numbers bench:compare
+// (task 0.11) will diff a later run against.
+function computeMetrics(rows: RowResult[]) {
+  const dims = DIMENSIONS.map((d) => d.key);
+  const n = rows.length;
+  const count = (f: (r: RowResult) => boolean) => rows.filter(f).length;
+  const sum = (sel: (r: RowResult) => number) => rows.reduce((s, r) => s + sel(r), 0);
+
+  const perDimension: Record<string, { adhdWins: number; baselineWins: number; ties: number }> = {};
+  for (const d of dims) {
+    perDimension[d] = {
+      adhdWins: count((r) => adhdDim(r, d) === "win"),
+      baselineWins: count((r) => adhdDim(r, d) === "loss"),
+      ties: count((r) => adhdDim(r, d) === "tie"),
+    };
+  }
+
+  const meanAdhdTok = sum((r) => r.lengths.adhd.estTokens) / n;
+  const meanBaseTok = sum((r) => r.lengths.baseline.estTokens) / n;
+  const adhdUSD = sum((r) => r.cost.adhd.usage.costUSD);
+  const baseUSD = sum((r) => r.cost.baseline.usage.costUSD);
+
+  return {
+    problemCount: n,
+    overall: {
+      adhdWins: count((r) => adhdWon(r) === "win"),
+      baselineWins: count((r) => adhdWon(r) === "loss"),
+      ties: count((r) => adhdWon(r) === "tie"),
+      adhdWinRate: count((r) => adhdWon(r) === "win") / n,
+    },
+    perDimension,
+    length: {
+      meanAdhdTokens: meanAdhdTok,
+      meanBaselineTokens: meanBaseTok,
+      ratio: meanBaseTok === 0 ? null : meanAdhdTok / meanBaseTok,
+    },
+    cost: {
+      adhdUSD,
+      baselineUSD: baseUSD,
+      ratioUSD: baseUSD === 0 ? null : adhdUSD / baseUSD,
+      adhdInputTokens: sum((r) => r.cost.adhd.usage.inputTokens),
+      adhdOutputTokens: sum((r) => r.cost.adhd.usage.outputTokens),
+      baselineInputTokens: sum((r) => r.cost.baseline.usage.inputTokens),
+      baselineOutputTokens: sum((r) => r.cost.baseline.usage.outputTokens),
+      meanAdhdMs: sum((r) => r.cost.adhd.ms) / n,
+      meanBaselineMs: sum((r) => r.cost.baseline.ms) / n,
+    },
+    duplication: {
+      meanRate: rows.reduce((s, r) => s + r.dedup.rate, 0) / n,
+      totalIdeas: sum((r) => r.dedup.total),
+      totalDuplicates: sum((r) => r.dedup.duplicates),
+      threshold: rows[0]?.dedup.threshold ?? null,
+    },
+  };
+}
+
+function gitInfo() {
+  const tryGit = (cmd: string) => {
+    try { return execSync(cmd, { encoding: "utf8" }).trim(); } catch { return "unknown"; }
+  };
+  return {
+    sha: tryGit("git rev-parse HEAD"),
+    branch: tryGit("git rev-parse --abbrev-ref HEAD"),
+    dirty: tryGit("git status --porcelain") !== "",
+  };
+}
+
+// Build the immutable Phase 0 baseline (task 0.10). Records the model and auth
+// mode alongside the SHA because both are environment-resolved here, not pinned —
+// without them the published numbers are not reproducible.
+function writeBaseline(rows: RowResult[]) {
+  mkdirSync("baseline", { recursive: true });
+  const metrics = computeMetrics(rows);
+  const git = gitInfo();
+  const model = rows.find((r) => r.cost.adhd.usage.model)?.cost.adhd.usage.model ?? "unknown";
+  const authMode = process.env.ANTHROPIC_API_KEY ? "api-key (metered)" : "claude-code subscription";
+  const generatedAt = new Date().toISOString();
+
+  const meta = { generatedAt, git, model, authMode };
+
+  writeFileSync("baseline/metrics.json", JSON.stringify({ meta, ...metrics }, null, 2));
+  writeFileSync("baseline/transcripts.json", JSON.stringify(rows, null, 2));
+
+  const m = metrics;
+  const pct = (x: number) => (x * 100).toFixed(0) + "%";
+  const s: string[] = [];
+  s.push(`# Baseline v0 — Phase 0 reference`);
+  s.push("");
+  s.push(`IMMUTABLE. Do not edit. This is the frozen reference the rest of the plan`);
+  s.push(`is measured against (PLAN.md task 0.10). Regenerating it would invalidate`);
+  s.push(`every later comparison.`);
+  s.push("");
+  s.push(`- Generated: ${generatedAt}`);
+  s.push(`- Commit: \`${git.sha}\` (branch \`${git.branch}\`${git.dirty ? ", working tree had uncommitted changes" : ""})`);
+  s.push(`- Model: \`${model}\` (SDK default — not pinned in code)`);
+  s.push(`- Auth: ${authMode} — USD figures are SDK estimates at API list price, not a literal bill under subscription`);
+  s.push(`- Problems: ${m.problemCount}`);
+  s.push("");
+  s.push(`## Headline`);
+  s.push("");
+  s.push(`ADHD ${m.overall.adhdWins}W / ${m.overall.baselineWins}L / ${m.overall.ties}T vs single-shot baseline (pairwise overall) — win rate ${pct(m.overall.adhdWinRate)}.`);
+  s.push("");
+  s.push(`## Key metrics`);
+  s.push("");
+  s.push(`| Metric | ADHD | Baseline | ADHD/base |`);
+  s.push(`| --- | ---: | ---: | ---: |`);
+  s.push(`| mean output length (est tokens) | ${m.length.meanAdhdTokens.toFixed(0)} | ${m.length.meanBaselineTokens.toFixed(0)} | ${m.length.ratio?.toFixed(1) ?? "—"}× |`);
+  s.push(`| total cost (USD est) | $${m.cost.adhdUSD.toFixed(4)} | $${m.cost.baselineUSD.toFixed(4)} | ${m.cost.ratioUSD?.toFixed(1) ?? "—"}× |`);
+  s.push(`| mean latency (s) | ${(m.cost.meanAdhdMs / 1000).toFixed(1)} | ${(m.cost.meanBaselineMs / 1000).toFixed(1)} | ${(m.cost.meanAdhdMs / m.cost.meanBaselineMs).toFixed(1)}× |`);
+  s.push("");
+  s.push(`- ADHD idea duplication (lexical): ${pct(m.duplication.meanRate)} mean across runs`);
+  s.push("");
+  s.push(`## Per-dimension pairwise wins (ADHD W / base W / tie)`);
+  s.push("");
+  s.push(`| Dimension | ADHD | base | tie |`);
+  s.push(`| --- | ---: | ---: | ---: |`);
+  for (const [d, v] of Object.entries(m.perDimension)) {
+    s.push(`| ${d} | ${v.adhdWins} | ${v.baselineWins} | ${v.ties} |`);
+  }
+  s.push("");
+  s.push(`Full numbers in \`metrics.json\`; full transcripts in \`transcripts.json\`. Human-readable per-problem verdicts are in the run's \`EVALS.md\`.`);
+  writeFileSync("baseline/SUMMARY.md", s.join("\n"));
 }
 
 main().catch((e) => {
