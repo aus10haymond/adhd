@@ -7,12 +7,36 @@
 // output during divergence (mixing kills idea quality).
 
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import type { CallUsage } from "./types.js";
 
 export type LLMOptions = {
   model?: string;
   systemPrompt: string;
   userPrompt: string;
+  // Optional side-channel: invoked once with the call's token/cost usage when
+  // the SDK reports it. Passive instrumentation — does not affect the output.
+  onUsage?: (u: CallUsage) => void;
 };
+
+export function emptyUsage(): CallUsage {
+  return {
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadInputTokens: 0,
+    cacheCreationInputTokens: 0,
+    costUSD: 0,
+  };
+}
+
+export function addUsage(a: CallUsage, b: CallUsage): CallUsage {
+  return {
+    inputTokens: a.inputTokens + b.inputTokens,
+    outputTokens: a.outputTokens + b.outputTokens,
+    cacheReadInputTokens: a.cacheReadInputTokens + b.cacheReadInputTokens,
+    cacheCreationInputTokens: a.cacheCreationInputTokens + b.cacheCreationInputTokens,
+    costUSD: a.costUSD + b.costUSD,
+  };
+}
 
 export async function callLLM(opts: LLMOptions): Promise<string> {
   const chunks: string[] = [];
@@ -34,8 +58,18 @@ export async function callLLM(opts: LLMOptions): Promise<string> {
         if (block.type === "text") chunks.push(block.text);
       }
     }
-    if (message.type === "result" && message.subtype !== "success") {
-      throw new Error(`LLM call failed: ${message.subtype}`);
+    if (message.type === "result") {
+      if (message.subtype !== "success") {
+        throw new Error(`LLM call failed: ${message.subtype}`);
+      }
+      const u = message.usage;
+      opts.onUsage?.({
+        inputTokens: u.input_tokens ?? 0,
+        outputTokens: u.output_tokens ?? 0,
+        cacheReadInputTokens: u.cache_read_input_tokens ?? 0,
+        cacheCreationInputTokens: u.cache_creation_input_tokens ?? 0,
+        costUSD: message.total_cost_usd ?? 0,
+      });
     }
   }
 

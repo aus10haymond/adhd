@@ -13,7 +13,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { run } from "../src/index.js";
 import { renderText } from "../src/render.js";
-import { callLLM } from "../src/llm.js";
+import { callLLM, emptyUsage } from "../src/llm.js";
+import type { CallUsage } from "../src/types.js";
 import { judge, DIMENSIONS, type Verdict } from "./judge.js";
 import { measure, type LengthMeasure } from "./length.js";
 
@@ -24,14 +25,22 @@ const BASELINE_SYSTEM =
   "give a useful answer with multiple approaches, tradeoffs, and a recommendation. " +
   "Be substantive but not bloated.";
 
-async function baseline(problem: string): Promise<string> {
-  return callLLM({
+// Each arm returns its output plus what it cost: token/USD usage and wall-clock.
+type Generated = { text: string; usage: CallUsage; ms: number };
+
+async function baseline(problem: string): Promise<Generated> {
+  let usage = emptyUsage();
+  const t0 = Date.now();
+  const text = await callLLM({
     systemPrompt: BASELINE_SYSTEM,
     userPrompt: `Ideate on this engineering problem:\n\n${problem}\n\nGive the user a useful answer.`,
+    onUsage: (u) => { usage = u; },
   });
+  return { text, usage, ms: Date.now() - t0 };
 }
 
-async function adhd(problem: string): Promise<string> {
+async function adhd(problem: string): Promise<Generated> {
+  const t0 = Date.now();
   const result = await run({
     problem,
     framesPerRun: 5,
@@ -44,7 +53,8 @@ async function adhd(problem: string): Promise<string> {
   // Strip ANSI for the judge — color codes are noise to the model. Omit the
   // self-rating chips too: stripping ANSI leaves the literal "[N V F]" text,
   // which is a self-score the baseline arm has no equivalent of (bench/AUDIT.md).
-  return renderText(result, { chips: false }).replace(/\x1b\[[0-9;]*m/g, "");
+  const text = renderText(result, { chips: false }).replace(/\x1b\[[0-9;]*m/g, "");
+  return { text, usage: result.usage, ms: Date.now() - t0 };
 }
 
 type RowResult = {
@@ -55,6 +65,10 @@ type RowResult = {
   baselineOutput: string;
   adhdOutput: string;
   lengths: { adhd: LengthMeasure; baseline: LengthMeasure }; // task 0.3 instrumentation
+  cost: {                                                    // task 0.8 instrumentation
+    adhd: { usage: CallUsage; ms: number };
+    baseline: { usage: CallUsage; ms: number };
+  };
   verdict: Verdict;
 };
 
@@ -83,15 +97,15 @@ async function main() {
     console.error(`\n— ${p.id} (${p.category})`);
 
     console.error("  · generating baseline…");
-    const baselineOutput = await baseline(p.problem);
+    const base = await baseline(p.problem);
 
     console.error("  · generating ADHD…");
-    const adhdOutput = await adhd(p.problem);
+    const adhdGen = await adhd(p.problem);
 
     // Randomize A/B order so the judge's positional bias is balanced.
     const swapped = Math.random() < 0.5;
-    const outA = swapped ? baselineOutput : adhdOutput;
-    const outB = swapped ? adhdOutput : baselineOutput;
+    const outA = swapped ? base.text : adhdGen.text;
+    const outB = swapped ? adhdGen.text : base.text;
 
     console.error("  · judging…");
     const verdict = await judge(p.problem, outA, outB);
@@ -101,9 +115,13 @@ async function main() {
       category: p.category,
       problem: p.problem,
       swapped,
-      baselineOutput,
-      adhdOutput,
-      lengths: { adhd: measure(adhdOutput), baseline: measure(baselineOutput) },
+      baselineOutput: base.text,
+      adhdOutput: adhdGen.text,
+      lengths: { adhd: measure(adhdGen.text), baseline: measure(base.text) },
+      cost: {
+        adhd: { usage: adhdGen.usage, ms: adhdGen.ms },
+        baseline: { usage: base.usage, ms: base.ms },
+      },
       verdict,
     });
 
@@ -219,6 +237,34 @@ function writeReport(rows: RowResult[]) {
   lines.push("");
   lines.push(`_With a small problem set these buckets are thin; the signal sharpens as the_`);
   lines.push(`_problem count grows (task 0.7)._`);
+  lines.push("");
+
+  // Cost & latency (task 0.8): the honest price of the win. ADHD makes many
+  // parallel calls; this is where "is the lift worth the spend" gets answered.
+  const sum = (sel: (r: RowResult) => number) => rows.reduce((s, r) => s + sel(r), 0);
+  const adhdUSD = sum((r) => r.cost.adhd.usage.costUSD);
+  const baseUSD = sum((r) => r.cost.baseline.usage.costUSD);
+  const adhdOut = sum((r) => r.cost.adhd.usage.outputTokens);
+  const baseOut = sum((r) => r.cost.baseline.usage.outputTokens);
+  const adhdIn = sum((r) => r.cost.adhd.usage.inputTokens);
+  const baseIn = sum((r) => r.cost.baseline.usage.inputTokens);
+  const adhdMs = sum((r) => r.cost.adhd.ms) / rows.length;
+  const baseMs = sum((r) => r.cost.baseline.ms) / rows.length;
+  const xOf = (a: number, b: number) => (b === 0 ? "—" : (a / b).toFixed(1) + "×");
+  const usd = (n: number) => "$" + n.toFixed(4);
+  lines.push(`## Cost & latency (task 0.8)`);
+  lines.push("");
+  lines.push(`Summed across ${rows.length} problem(s); the multiplier is ADHD relative to baseline.`);
+  lines.push(`Judge calls are eval overhead and are not counted here.`);
+  lines.push("");
+  lines.push(`| Metric | ADHD | Baseline | ADHD/base |`);
+  lines.push(`| --- | ---: | ---: | ---: |`);
+  lines.push(`| total cost (USD) | ${usd(adhdUSD)} | ${usd(baseUSD)} | ${xOf(adhdUSD, baseUSD)} |`);
+  lines.push(`| input tokens | ${adhdIn} | ${baseIn} | ${xOf(adhdIn, baseIn)} |`);
+  lines.push(`| output tokens | ${adhdOut} | ${baseOut} | ${xOf(adhdOut, baseOut)} |`);
+  lines.push(`| mean latency (s) | ${(adhdMs / 1000).toFixed(1)} | ${(baseMs / 1000).toFixed(1)} | ${xOf(adhdMs, baseMs)} |`);
+  lines.push("");
+  lines.push(`_Per-problem usage + wall-clock are in \`bench/results.json\`._`);
   lines.push("");
   lines.push(`## Per-problem verdicts`);
   lines.push("");

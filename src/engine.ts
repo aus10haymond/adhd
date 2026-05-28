@@ -13,10 +13,11 @@
 
 import pLimit from "p-limit";
 import { randomUUID } from "node:crypto";
-import { callLLM, parseJSON } from "./llm.js";
+import { callLLM, parseJSON, emptyUsage, addUsage } from "./llm.js";
 import { selectFrames, type Frame } from "./frames.js";
 import type {
   Branch,
+  CallUsage,
   Cluster,
   DeepenedIdea,
   Idea,
@@ -24,6 +25,8 @@ import type {
   RunResult,
   Score,
 } from "./types.js";
+
+type UsageSink = ((u: CallUsage) => void) | undefined;
 
 const DIVERGE_SYSTEM = `You are in DIVERGENT mode. You are a generator, not a critic.
 Rules:
@@ -64,6 +67,7 @@ async function divergeBranch(
   frame: Frame,
   ideasPerFrame: number,
   model: string | undefined,
+  onUsage: UsageSink,
 ): Promise<Branch> {
   const userPrompt = `PROBLEM:
 ${problem}
@@ -80,6 +84,7 @@ Output JSON array: [{"text": "...", "rationale": "..."}]
     model,
     systemPrompt: DIVERGE_SYSTEM,
     userPrompt,
+    onUsage,
   });
 
   type Row = { text: string; rationale?: string };
@@ -104,6 +109,7 @@ async function scoreIdeas(
   problem: string,
   ideas: Idea[],
   model: string | undefined,
+  onUsage: UsageSink,
 ): Promise<Map<string, Score>> {
   if (ideas.length === 0) return new Map();
 
@@ -120,6 +126,7 @@ Score each. Output JSON array:
     model,
     systemPrompt: SCORE_SYSTEM,
     userPrompt,
+    onUsage,
   });
 
   type Row = { id: string; novelty: number; viability: number; fit: number; trap?: string };
@@ -150,6 +157,7 @@ async function clusterIdeas(
   problem: string,
   ideas: Idea[],
   model: string | undefined,
+  onUsage: UsageSink,
 ): Promise<Cluster[]> {
   if (ideas.length === 0) return [];
 
@@ -165,6 +173,7 @@ Output JSON: [{"label":"...","ideaIds":["...","..."]}]`;
     model,
     systemPrompt: CLUSTER_SYSTEM,
     userPrompt,
+    onUsage,
   });
 
   try {
@@ -179,6 +188,7 @@ async function deepenIdea(
   idea: Idea,
   siblings: Idea[],
   model: string | undefined,
+  onUsage: UsageSink,
 ): Promise<DeepenedIdea> {
   const userPrompt = `PROBLEM:
 ${problem}
@@ -206,6 +216,7 @@ Output JSON:
     model,
     systemPrompt: DEEPEN_SYSTEM,
     userPrompt,
+    onUsage,
   });
 
   type Out = { sketch: string; childIdeas: { text: string; rationale?: string }[] };
@@ -244,12 +255,18 @@ export async function run(opts: RunOptions): Promise<RunResult> {
   const frames = selectFrames(framesPerRun, codeMode);
   const limit = pLimit(concurrency);
 
+  // Sum token/cost usage across every LLM call this run makes. Callbacks fire
+  // one at a time on the event loop, so the reassignment is race-free even
+  // though the calls run in parallel.
+  let usage = emptyUsage();
+  const acc: UsageSink = (u) => { usage = addUsage(usage, u); };
+
   // PHASE 1 — DIVERGE. Pure parallel fan-out. No branch sees another.
   const branches = await Promise.all(
     frames.map((f) =>
       limit(async () => {
         onEvent?.({ kind: "frame:start", frameId: f.id, frameLabel: f.label });
-        const b = await divergeBranch(problem, context, f, ideasPerFrame, model);
+        const b = await divergeBranch(problem, context, f, ideasPerFrame, model, acc);
         onEvent?.({ kind: "frame:done", frameId: f.id, count: b.ideas.length });
         return b;
       }),
@@ -260,8 +277,8 @@ export async function run(opts: RunOptions): Promise<RunResult> {
 
   // PHASE 2 — SCORE + CLUSTER. Critic comes back online.
   const [scoreMap, clusters] = await Promise.all([
-    scoreIdeas(problem, allIdeas, model),
-    clusterIdeas(problem, allIdeas, model),
+    scoreIdeas(problem, allIdeas, model, acc),
+    clusterIdeas(problem, allIdeas, model, acc),
   ]);
   for (const i of allIdeas) i.score = scoreMap.get(i.id);
   // Stamp cluster label onto each idea for nicer rendering.
@@ -295,7 +312,7 @@ export async function run(opts: RunOptions): Promise<RunResult> {
     toDeepen.map((idea) =>
       limit(async () => {
         onEvent?.({ kind: "deepen:start", ideaId: idea.id, text: idea.text });
-        const d = await deepenIdea(problem, idea, allIdeas, model);
+        const d = await deepenIdea(problem, idea, allIdeas, model, acc);
         onEvent?.({ kind: "deepen:done", ideaId: idea.id });
         return d;
       }),
@@ -320,5 +337,6 @@ export async function run(opts: RunOptions): Promise<RunResult> {
     traps,
     deepened,
     provocation,
+    usage,
   };
 }

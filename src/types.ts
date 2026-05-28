@@ -22,6 +22,18 @@ export type Branch = {
   ideas: Idea[];
 };
 
+// Token/cost accounting from the SDK, summed across every LLM call in a run.
+// Reported by the eval (cost is one of the four wins) and reusable for a budget
+// cap later. Cache fields are tracked because prompt caching (task 2.1) will
+// move tokens from input into the cache columns.
+export type CallUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
+  costUSD: number;
+};
+
 export type RunResult = {
   problem: string;
   reframe?: string;
@@ -32,6 +44,7 @@ export type RunResult = {
   traps: Idea[];
   deepened: DeepenedIdea[];   // top branches expanded
   provocation: string;        // single wild-card question/idea
+  usage: CallUsage;           // summed token/cost accounting for the whole run
 };
 
 export type Cluster = {

@@ -10,4 +10,5 @@ export type {
   RunResult,
   RunEvent,
   Score,
+  CallUsage,
 } from "./types.js";
