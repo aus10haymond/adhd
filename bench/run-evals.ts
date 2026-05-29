@@ -16,9 +16,10 @@ import { run } from "../src/index.js";
 import { renderText } from "../src/render.js";
 import { callLLM, emptyUsage } from "../src/llm.js";
 import type { CallUsage } from "../src/types.js";
-import { judge, DIMENSIONS, type Verdict } from "./judge.js";
-import { measure, type LengthMeasure } from "./length.js";
-import { duplicationRate, type DedupResult } from "./dedup.js";
+import { judge, DIMENSIONS } from "./judge.js";
+import { measure } from "./length.js";
+import { duplicationRate } from "./dedup.js";
+import { type RowResult, adhdDim, adhdWon, computeMetrics } from "./metrics.js";
 
 type Problem = { id: string; category: string; problem: string };
 
@@ -68,22 +69,6 @@ async function adhd(problem: string): Promise<Generated> {
   const ideas = result.branches.flatMap((b) => b.ideas).map((i) => i.text);
   return { text, usage: result.usage, ms: Date.now() - t0, ideas };
 }
-
-type RowResult = {
-  problemId: string;
-  category: string;
-  problem: string;
-  swapped: boolean;            // if true, A=baseline, B=adhd; else A=adhd, B=baseline
-  baselineOutput: string;
-  adhdOutput: string;
-  lengths: { adhd: LengthMeasure; baseline: LengthMeasure }; // task 0.3 instrumentation
-  cost: {                                                    // task 0.8 instrumentation
-    adhd: { usage: CallUsage; ms: number };
-    baseline: { usage: CallUsage; ms: number };
-  };
-  dedup: DedupResult;                                        // task 0.9: ADHD idea duplication
-  verdict: Verdict;
-};
 
 function getArg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -245,23 +230,6 @@ async function main() {
 
   // Clean completion — discard the resume checkpoint so the next run starts fresh.
   if (existsSync(PROGRESS_PATH)) rmSync(PROGRESS_PATH);
-}
-
-type Outcome = "win" | "loss" | "tie";
-
-// Map a blinded A/B/tie preference back to ADHD's perspective via `swapped`.
-function fromAdhd(pref: "A" | "B" | "tie", swapped: boolean): Outcome {
-  const adhdLabel = swapped ? "B" : "A";
-  const baseLabel = swapped ? "A" : "B";
-  if (pref === adhdLabel) return "win";
-  if (pref === baseLabel) return "loss";
-  return "tie";
-}
-function adhdDim(r: RowResult, key: string): Outcome {
-  return fromAdhd(r.verdict.perCriterion[key]?.winner ?? "tie", r.swapped);
-}
-function adhdWon(r: RowResult): Outcome {
-  return fromAdhd(r.verdict.overall, r.swapped);
 }
 
 function writeReport(rows: RowResult[]) {
@@ -426,62 +394,6 @@ function writeReport(rows: RowResult[]) {
 
 function writeJson(rows: RowResult[]) {
   writeFileSync("bench/results.json", JSON.stringify(rows, null, 2));
-}
-
-// Machine-readable aggregate metrics — the canonical numbers bench:compare
-// (task 0.11) will diff a later run against.
-function computeMetrics(rows: RowResult[]) {
-  const dims = DIMENSIONS.map((d) => d.key);
-  const n = rows.length;
-  const count = (f: (r: RowResult) => boolean) => rows.filter(f).length;
-  const sum = (sel: (r: RowResult) => number) => rows.reduce((s, r) => s + sel(r), 0);
-
-  const perDimension: Record<string, { adhdWins: number; baselineWins: number; ties: number }> = {};
-  for (const d of dims) {
-    perDimension[d] = {
-      adhdWins: count((r) => adhdDim(r, d) === "win"),
-      baselineWins: count((r) => adhdDim(r, d) === "loss"),
-      ties: count((r) => adhdDim(r, d) === "tie"),
-    };
-  }
-
-  const meanAdhdTok = sum((r) => r.lengths.adhd.estTokens) / n;
-  const meanBaseTok = sum((r) => r.lengths.baseline.estTokens) / n;
-  const adhdUSD = sum((r) => r.cost.adhd.usage.costUSD);
-  const baseUSD = sum((r) => r.cost.baseline.usage.costUSD);
-
-  return {
-    problemCount: n,
-    overall: {
-      adhdWins: count((r) => adhdWon(r) === "win"),
-      baselineWins: count((r) => adhdWon(r) === "loss"),
-      ties: count((r) => adhdWon(r) === "tie"),
-      adhdWinRate: count((r) => adhdWon(r) === "win") / n,
-    },
-    perDimension,
-    length: {
-      meanAdhdTokens: meanAdhdTok,
-      meanBaselineTokens: meanBaseTok,
-      ratio: meanBaseTok === 0 ? null : meanAdhdTok / meanBaseTok,
-    },
-    cost: {
-      adhdUSD,
-      baselineUSD: baseUSD,
-      ratioUSD: baseUSD === 0 ? null : adhdUSD / baseUSD,
-      adhdInputTokens: sum((r) => r.cost.adhd.usage.inputTokens),
-      adhdOutputTokens: sum((r) => r.cost.adhd.usage.outputTokens),
-      baselineInputTokens: sum((r) => r.cost.baseline.usage.inputTokens),
-      baselineOutputTokens: sum((r) => r.cost.baseline.usage.outputTokens),
-      meanAdhdMs: sum((r) => r.cost.adhd.ms) / n,
-      meanBaselineMs: sum((r) => r.cost.baseline.ms) / n,
-    },
-    duplication: {
-      meanRate: rows.reduce((s, r) => s + r.dedup.rate, 0) / n,
-      totalIdeas: sum((r) => r.dedup.total),
-      totalDuplicates: sum((r) => r.dedup.duplicates),
-      threshold: rows[0]?.dedup.threshold ?? null,
-    },
-  };
 }
 
 function gitInfo() {
