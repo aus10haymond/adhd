@@ -7,3 +7,7 @@ dist
 # filled ratings, per-run blinded docs, blinding key, and agreement report are not.
 bench/human-ratings.json
 bench/calibration/
+
+# Resume checkpoint for the eval runner (transient). Lets a throttled/crashed
+# run resume instead of redoing completed problems; deleted on clean completion.
+bench/runs/.progress.json

@@ -111,16 +111,20 @@ freeze a baseline of the current unmodified `main`.
   `duplicationRate` — dependency-free lexical token-Jaccard clustering, no API/judge cost.
   Per-problem `dedup` in `results.json` + a Duplication section in `EVALS.md`. Labeled a
   lexical proxy; Phase 2 may swap in semantic via the same interface.)
-- [ ] 0.10 Build the baseline. Run the full improved eval against the current unmodified
+- [x] 0.10 Build the baseline. Run the full improved eval against the current unmodified
   `main`. Write to an immutable `baseline/` directory: `baseline/metrics.json`,
   `baseline/transcripts.json`, `baseline/SUMMARY.md`. Record the `main` git commit SHA
   in the summary.
-  BLOCKED (2026-05-28): writer + model pin (`claude-haiku-4-5`, commit 914af44) are done.
-  Full pinned run failed at problem 15/17 with a non-JSON stream message ("Claude con…"),
-  i.e. an apparent usage-limit/throttle. Retry `npm run evals -- --baseline` once usage
-  resets. An earlier *complete but unpinned* Haiku run sits in untracked `baseline/` as a
-  fallback — do not commit it; regenerate clean under the pin. Also observed: the SDK
-  default silently fell back Opus 4.5 → Haiku 4.5 between runs (why the pin exists).
+  DONE (2026-05-29): clean 17/17 pinned run (`claude-haiku-4-5-20251001`) at commit
+  `ff75fce`. Headline: ADHD 9W/7L/1T — **win rate 53%** (vs the discarded unpinned
+  fallback's inflated 88%; the drop is the eval-trust fix working). ADHD sweeps breadth
+  17/0, novelty 16/1, trap_detection 17/0; loses builder_usefulness 3/14 and splits
+  actionability 8/9. Two earlier attempts died near the end (15/17, 16/17) on subscription
+  throttles, discarding all work — so the eval harness now checkpoints each completed
+  problem (gitignored `bench/runs/.progress.json`) and retries with backoff, letting a
+  throttled run resume instead of restarting. Harness-only change; system/ideation code
+  unchanged, so the baseline is still of unmodified `main` (tree was dirty with the
+  resilience patch at gen time — noted honestly in SUMMARY).
 - [ ] 0.11 Write `bench/README.md` documenting how to run the eval and how to compare a
   run to the baseline. Add npm scripts `bench:baseline` and `bench:compare`.
 

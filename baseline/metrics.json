@@ -1,0 +1,68 @@
+{
+  "meta": {
+    "generatedAt": "2026-05-29T21:36:05.521Z",
+    "git": {
+      "sha": "ff75fce59917c4610136417b2e229f4489ceaa78",
+      "branch": "main",
+      "dirty": true
+    },
+    "model": "claude-haiku-4-5-20251001",
+    "authMode": "claude-code subscription"
+  },
+  "problemCount": 17,
+  "overall": {
+    "adhdWins": 9,
+    "baselineWins": 7,
+    "ties": 1,
+    "adhdWinRate": 0.5294117647058824
+  },
+  "perDimension": {
+    "breadth": {
+      "adhdWins": 17,
+      "baselineWins": 0,
+      "ties": 0
+    },
+    "novelty": {
+      "adhdWins": 16,
+      "baselineWins": 1,
+      "ties": 0
+    },
+    "trap_detection": {
+      "adhdWins": 17,
+      "baselineWins": 0,
+      "ties": 0
+    },
+    "actionability": {
+      "adhdWins": 8,
+      "baselineWins": 9,
+      "ties": 0
+    },
+    "builder_usefulness": {
+      "adhdWins": 3,
+      "baselineWins": 14,
+      "ties": 0
+    }
+  },
+  "length": {
+    "meanAdhdTokens": 4305.764705882353,
+    "meanBaselineTokens": 1054.0588235294117,
+    "ratio": 4.0849377755455105
+  },
+  "cost": {
+    "adhdUSD": 8.12147365,
+    "baselineUSD": 1.13415175,
+    "ratioUSD": 7.160835091071367,
+    "adhdInputTokens": 506,
+    "adhdOutputTokens": 131274,
+    "baselineInputTokens": 51,
+    "baselineOutputTokens": 18136,
+    "meanAdhdMs": 53195.529411764706,
+    "meanBaselineMs": 15685.470588235294
+  },
+  "duplication": {
+    "meanRate": 0.018627450980392157,
+    "totalIdeas": 474,
+    "totalDuplicates": 9,
+    "threshold": 0.5
+  }
+}

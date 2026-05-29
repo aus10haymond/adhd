@@ -10,7 +10,7 @@
 // Order of A/B in the prompt is randomized per problem to balance positional
 // bias; the mapping is recorded so aggregates can be computed correctly.
 
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { run } from "../src/index.js";
 import { renderText } from "../src/render.js";
@@ -93,6 +93,100 @@ function hasFlag(name: string): boolean {
   return process.argv.includes(name);
 }
 
+// Resume checkpoint. A full baseline run is ~30 min and hundreds of LLM calls;
+// a single throttle/subprocess crash near the end otherwise discards every
+// completed problem (observed twice at 15/17 and 16/17 against the subscription
+// usage limit). We persist each finished problem the moment it lands, keyed to
+// the exact model + problem set, so a re-run resumes instead of redoing work.
+// Transient (gitignored); deleted on clean completion.
+const PROGRESS_PATH = new URL("./runs/.progress.json", import.meta.url);
+type Progress = { model: string; problemIds: string[]; rows: RowResult[] };
+
+function loadProgress(model: string, ids: string[]): RowResult[] {
+  try {
+    if (!existsSync(PROGRESS_PATH)) return [];
+    const p: Progress = JSON.parse(readFileSync(PROGRESS_PATH, "utf8"));
+    // Only reuse a checkpoint that matches this exact run, or it would
+    // contaminate the aggregate with rows from a different model/problem set.
+    const sameSet =
+      p.model === model &&
+      p.problemIds.length === ids.length &&
+      [...p.problemIds].sort().join() === [...ids].sort().join();
+    if (!sameSet) return [];
+    return p.rows;
+  } catch {
+    return [];
+  }
+}
+
+function saveProgress(model: string, ids: string[], rows: RowResult[]) {
+  mkdirSync(new URL("./runs/", import.meta.url), { recursive: true });
+  const p: Progress = { model, problemIds: ids, rows };
+  writeFileSync(PROGRESS_PATH, JSON.stringify(p, null, 2));
+}
+
+// Absorb short transport blips (a momentary throttle, a dropped subprocess) by
+// retrying the whole per-problem unit with backoff. A sustained usage cap will
+// exhaust the retries and throw — at which point the caller persists progress
+// so the run can resume later. Backoff is in env-overridable seconds.
+async function withRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  const delaysSec = [20, 45, 90];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (attempt >= delaysSec.length) throw e;
+      const wait = delaysSec[attempt];
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`  ! ${label} failed (${msg.slice(0, 80)}); retry in ${wait}s [${attempt + 1}/${delaysSec.length}]`);
+      await new Promise((r) => setTimeout(r, wait * 1000));
+    }
+  }
+}
+
+// Run one problem end-to-end: generate both arms, randomize A/B, judge, log.
+async function processProblem(p: Problem): Promise<RowResult> {
+  console.error(`\n— ${p.id} (${p.category})`);
+
+  console.error("  · generating baseline…");
+  const base = await baseline(p.problem);
+
+  console.error("  · generating ADHD…");
+  const adhdGen = await adhd(p.problem);
+
+  // Randomize A/B order so the judge's positional bias is balanced.
+  const swapped = Math.random() < 0.5;
+  const outA = swapped ? base.text : adhdGen.text;
+  const outB = swapped ? adhdGen.text : base.text;
+
+  console.error("  · judging…");
+  const verdict = await judge(p.problem, outA, outB, EVAL_MODEL);
+
+  const row: RowResult = {
+    problemId: p.id,
+    category: p.category,
+    problem: p.problem,
+    swapped,
+    baselineOutput: base.text,
+    adhdOutput: adhdGen.text,
+    lengths: { adhd: measure(adhdGen.text), baseline: measure(base.text) },
+    cost: {
+      adhd: { usage: adhdGen.usage, ms: adhdGen.ms },
+      baseline: { usage: base.usage, ms: base.ms },
+    },
+    dedup: duplicationRate(adhdGen.ideas),
+    verdict,
+  };
+
+  const adhdLabel = swapped ? "B" : "A";
+  const baseLabel = swapped ? "A" : "B";
+  const outcome =
+    verdict.overall === adhdLabel ? "ADHD wins" :
+    verdict.overall === baseLabel ? "baseline wins" : "tie";
+  console.error(`  → ${outcome} :: ${verdict.summary}`);
+  return row;
+}
+
 async function main() {
   const allProblems: Problem[] = JSON.parse(
     readFileSync(new URL("./problems.json", import.meta.url), "utf8"),
@@ -103,48 +197,41 @@ async function main() {
   let problems = onlyId ? allProblems.filter((p) => p.id === onlyId) : allProblems;
   if (quick) problems = problems.slice(0, 2);
 
+  const ids = problems.map((p) => p.id);
+
+  // Resume: reuse any matching completed problems from a prior interrupted run.
+  // `--fresh` forces a clean start (clears the checkpoint).
+  if (hasFlag("--fresh") && existsSync(PROGRESS_PATH)) rmSync(PROGRESS_PATH);
+  const done = new Map(loadProgress(EVAL_MODEL, ids).map((r) => [r.problemId, r]));
+  if (done.size > 0) {
+    console.error(`▸ resuming: ${done.size}/${problems.length} problem(s) already complete`);
+  }
+
   console.error(`▸ running ${problems.length} eval(s)`);
 
   const rows: RowResult[] = [];
   for (const p of problems) {
-    console.error(`\n— ${p.id} (${p.category})`);
-
-    console.error("  · generating baseline…");
-    const base = await baseline(p.problem);
-
-    console.error("  · generating ADHD…");
-    const adhdGen = await adhd(p.problem);
-
-    // Randomize A/B order so the judge's positional bias is balanced.
-    const swapped = Math.random() < 0.5;
-    const outA = swapped ? base.text : adhdGen.text;
-    const outB = swapped ? adhdGen.text : base.text;
-
-    console.error("  · judging…");
-    const verdict = await judge(p.problem, outA, outB, EVAL_MODEL);
-
-    rows.push({
-      problemId: p.id,
-      category: p.category,
-      problem: p.problem,
-      swapped,
-      baselineOutput: base.text,
-      adhdOutput: adhdGen.text,
-      lengths: { adhd: measure(adhdGen.text), baseline: measure(base.text) },
-      cost: {
-        adhd: { usage: adhdGen.usage, ms: adhdGen.ms },
-        baseline: { usage: base.usage, ms: base.ms },
-      },
-      dedup: duplicationRate(adhdGen.ideas),
-      verdict,
-    });
-
-    const adhdLabel = swapped ? "B" : "A";
-    const baseLabel = swapped ? "A" : "B";
-    const outcome =
-      verdict.overall === adhdLabel ? "ADHD wins" :
-      verdict.overall === baseLabel ? "baseline wins" : "tie";
-    console.error(`  → ${outcome} :: ${verdict.summary}`);
+    const cached = done.get(p.id);
+    if (cached) {
+      console.error(`\n— ${p.id} (${p.category})  · cached, skipping`);
+      rows.push(cached);
+      continue;
+    }
+    try {
+      const row = await withRetry(p.id, () => processProblem(p));
+      rows.push(row);
+      // Persist immediately so a later crash doesn't cost this problem.
+      saveProgress(EVAL_MODEL, ids, rows);
+    } catch (e) {
+      // Sustained failure (e.g. usage cap). Keep what we have and tell the user
+      // how to resume — re-running picks up from the checkpoint.
+      console.error(e);
+      console.error(
+        `\n✗ stopped at ${p.id} (${rows.length}/${problems.length} complete). ` +
+        `Progress saved — re-run the same command once usage resets to resume.`,
+      );
+      process.exit(1);
+    }
   }
 
   writeReport(rows);
@@ -155,6 +242,9 @@ async function main() {
     writeBaseline(rows);
     console.error(`✓ wrote immutable baseline/ (do not edit by hand)`);
   }
+
+  // Clean completion — discard the resume checkpoint so the next run starts fresh.
+  if (existsSync(PROGRESS_PATH)) rmSync(PROGRESS_PATH);
 }
 
 type Outcome = "win" | "loss" | "tie";
@@ -432,7 +522,7 @@ function writeBaseline(rows: RowResult[]) {
   s.push("");
   s.push(`- Generated: ${generatedAt}`);
   s.push(`- Commit: \`${git.sha}\` (branch \`${git.branch}\`${git.dirty ? ", working tree had uncommitted changes" : ""})`);
-  s.push(`- Model: \`${model}\` (SDK default — not pinned in code)`);
+  s.push(`- Model: \`${model}\` (pinned in code — EVAL_MODEL)`);
   s.push(`- Auth: ${authMode} — USD figures are SDK estimates at API list price, not a literal bill under subscription`);
   s.push(`- Problems: ${m.problemCount}`);
   s.push("");
