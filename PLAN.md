@@ -255,6 +255,15 @@ Goal: confirm the gains are real and update all public claims to match measured 
 - [ ] 4.3 Refresh the human-rated calibration subset and re-check LLM-vs-human agreement.
 - [ ] 4.4 Update `EVALS.md` and `README.md` so every claim matches what the new eval
   actually supports. Remove or soften any claim the eval does not back.
+  SCOPE NOTE (2026-05-29): an upstream merge restructured the README and moved deep
+  content into a new `documentation/` tree, so "public claims" now spans more than two
+  files. In particular `documentation/evals.md` still republishes the pre-Phase-0 eval:
+  absolute 0–10 mean scores (the scoring 0.5 replaced with pairwise A/B/tie), "wins 5 of
+  6 problems" / "6 problems" (0.7 expanded to 17), and run date 2026-05-25 — all of which
+  contradict the frozen baseline (53% pairwise, 17 problems, no absolute scores). 4.4 must
+  reconcile `documentation/evals.md` and scan `documentation/{when-to-use,how-it-works,
+  vs-cot-and-tot,frames,api}.md` plus the trimmed `README.md` for any cited numbers, not
+  just `EVALS.md` + `README.md`.
 - [ ] 4.5 Tag the repo: `git tag final-v1`.
 
 To mark this phase: all tasks `[x]`, status line updated, table updated, committed.
