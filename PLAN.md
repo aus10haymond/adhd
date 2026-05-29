@@ -125,21 +125,30 @@ freeze a baseline of the current unmodified `main`.
   throttled run resume instead of restarting. Harness-only change; system/ideation code
   unchanged, so the baseline is still of unmodified `main` (tree was dirty with the
   resilience patch at gen time — noted honestly in SUMMARY).
-- [ ] 0.11 Write `bench/README.md` documenting how to run the eval and how to compare a
-  run to the baseline. Add npm scripts `bench:baseline` and `bench:compare`.
+- [x] 0.11 Write `bench/README.md` documenting how to run the eval and how to compare a
+  run to the baseline. Add npm scripts `bench:baseline` and `bench:compare`. (Done:
+  `bench/README.md` covers run/resume/baseline/compare; `bench:baseline` and
+  `bench:compare` added to `package.json`. `bench:compare` (`bench/compare.ts`) diffs a
+  run's `results.json` against `baseline/metrics.json` with per-metric ▲/▼ + improvement
+  marks. Shared `computeMetrics` + `RowResult` factored into `bench/metrics.ts` so runner
+  and compare cannot drift apart.)
 
 ### Benchmark checkpoint 0
 
-- [ ] Confirm `baseline/` is populated and committed.
-- [ ] Confirm judge self-consistency is recorded. If the verdict flips on more than 20
+- [x] Confirm `baseline/` is populated and committed. (Committed in `plan(P0.10)`:
+  pinned 17/17 run, `claude-haiku-4-5-20251001` @ `ff75fce`, win rate 53%.)
+- [x] Confirm judge self-consistency is recorded. If the verdict flips on more than 20
   percent of problems, the eval is too noisy: switch the judge to best-of-3 majority
-  voting before proceeding.
-- [ ] Tag the repo: `git tag baseline-v0`.
+  voting before proceeding. (Recorded in `bench/NOISE.md`: 0% winner-flip across 3 runs,
+  well under 20% — best-of-3 not required. Caveat: that measurement is under the
+  *pre-pairwise* judge (0.2); a fresh 3× self-consistency check under the current
+  pairwise judge is folded into Phase 4.1's variance run rather than re-run here.)
+- [x] Tag the repo: `git tag baseline-v0`.
 
 To mark this phase: when every task above is `[x]` and checkpoint 0 passes, set the
 status line below to DONE, update the progress table, and commit.
 
-**Phase 0 status: NOT STARTED**
+**Phase 0 status: DONE (2026-05-29) — baseline frozen at `ff75fce`, tag `baseline-v0`, win rate 53%.**
 
 ---
 
@@ -283,7 +292,7 @@ Update after each phase checkpoint.
 
 | Phase | Status      | Win rate vs baseline | Cost vs baseline | Notes |
 | ----- | ----------- | -------------------- | ---------------- | ----- |
-| 0     | NOT STARTED | baseline             | baseline         |       |
+| 0     | DONE        | baseline (53%)       | baseline         | pinned haiku-4-5 @ ff75fce; tag baseline-v0 |
 | 1     | NOT STARTED |                      |                  |       |
 | 2     | NOT STARTED |                      |                  |       |
 | 3     | NOT STARTED |                      |                  |       |

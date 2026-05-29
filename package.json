@@ -23,6 +23,8 @@
     "start": "node dist/cli.js",
     "evals": "tsx bench/run-evals.ts",
     "evals:quick": "tsx bench/run-evals.ts --quick",
+    "bench:baseline": "tsx bench/run-evals.ts --baseline",
+    "bench:compare": "tsx bench/compare.ts",
     "calib:prepare": "tsx bench/calibration.ts prepare",
     "calib:report": "tsx bench/calibration.ts report"
   },
